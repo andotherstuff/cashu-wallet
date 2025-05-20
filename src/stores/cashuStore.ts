@@ -48,7 +48,10 @@ export const useCashuStore = create<CashuStore>()(
       },
 
       addProof(proof) {
-        set({ proofs: [...get().proofs, proof] })
+        const existingProofs = get().proofs.map((p) => p.secret)
+        if (!existingProofs.includes(proof.secret)) {
+          set({ proofs: [...get().proofs, proof] })
+        }
       },
 
       removeProofs(proofIds) {

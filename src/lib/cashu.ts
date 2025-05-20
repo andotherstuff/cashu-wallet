@@ -1,5 +1,6 @@
 // Types and utilities for Cashu wallet (NIP-60)
 
+import { useCashuStore } from "@/stores/cashuStore";
 import { CashuMint, Proof, CashuWallet, GetInfoResponse, MintKeyset, MintKeys } from "@cashu/cashu-ts";
 export interface CashuProof {
   id: string;
@@ -37,13 +38,18 @@ export const CASHU_EVENT_KINDS = {
 };
 
 // Helper function to calculate total balance from tokens
-export function calculateBalance(proofs: Proof[]): { [mint: string]: number } {
+export function calculateBalance(proofs: Proof[]): Record<string, number> {
   const balances: { [mint: string]: number } = {};
-
-  for (const proof of proofs) {
-    balances[proof.amount] += proof.amount;
+  const mints = useCashuStore.getState().mints;
+  for (const mint of mints) {
+    const keysets = mint.keysets;
+    if (!keysets) continue;
+    for (const keyset of keysets) {
+      // select all proofs with id == keyset.id
+      const proofsForKeyset = proofs.filter((proof) => proof.id === keyset.id);
+      balances[mint.url] = proofsForKeyset.reduce((acc, proof) => acc + proof.amount, 0);
+    }
   }
-
   return balances;
 }
 
