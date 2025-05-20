@@ -43,8 +43,6 @@ export function CashuWalletLightningCard() {
   const {
     wallet,
     isLoading,
-    storeMintProofs,
-    deleteMintProofs,
     createHistory,
     updateProofs,
     tokens = [],
@@ -251,23 +249,10 @@ export function CashuWalletLightningCard() {
           proofsToRemove: selectedProofs,
         });
 
-        // Delete token events that contained the spent proofs
-        // This is simplified - in a real implementation, we would have a way to map proofs to token events
-        for (const token of tokens as unknown as TokenEvent[]) {
-          if (token.id) {
-            try {
-              await deleteMintProofs(token.id);
-            } catch (err) {
-              console.error("Error deleting token:", err);
-            }
-          }
-        }
-
         // Create history event
         await createHistory({
           direction: "out",
           amount: invoiceAmount.toString(),
-          // In a real implementation, we'd track the specific tokens destroyed/created
         });
 
         setSuccess(`Paid ${invoiceAmount} sats via Lightning!`);
