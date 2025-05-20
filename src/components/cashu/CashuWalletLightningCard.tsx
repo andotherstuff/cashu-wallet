@@ -30,6 +30,7 @@ import {
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { Proof } from "@cashu/cashu-ts";
 import { CashuToken } from "@/lib/cashu";
+import { NostrEvent } from "nostr-tools";
 
 interface TokenEvent {
   id: string;
@@ -42,9 +43,10 @@ export function CashuWalletLightningCard() {
   const {
     wallet,
     isLoading,
-    createToken,
-    deleteToken,
+    storeMintProofs,
+    deleteMintProofs,
     createHistory,
+    updateProofs,
     tokens = [],
   } = useCashuWallet();
   const cashuStore = useCashuStore();
@@ -108,33 +110,24 @@ export function CashuWalletLightningCard() {
       const proofs = await mintTokensFromPaidInvoice(mintUrl, hash, amount);
 
       if (proofs.length > 0) {
-        // Add the proofs to the store
-        for (const proof of proofs) {
-          cashuStore.addProof(proof);
-        }
+        // update proofs
+        await updateProofs({
+          mintUrl,
+          proofsToAdd: proofs,
+          proofsToRemove: [],
+        });
 
-        // Create a token event in Nostr
-        const tokenData: CashuToken = {
-          mint: mintUrl,
-          proofs: proofs.map((p) => ({
-            id: p.id || "",
-            amount: p.amount,
-            secret: p.secret || "",
-            C: p.C || "",
-          })),
-        };
+        // get token event
+        const tokenEventId = cashuStore.getProofEventId(proofs[0]);
 
         // Create token in Nostr
         try {
-          const result = await createToken(tokenData);
-          const tokenEvent = result as unknown as TokenEvent;
-
           // Create history event if we got a token ID
-          if (tokenEvent && tokenEvent.id) {
+          if (tokenEventId) {
             await createHistory({
               direction: "in",
               amount: amount.toString(),
-              createdTokens: [tokenEvent.id],
+              createdTokens: [tokenEventId],
             });
           }
         } catch (err) {
@@ -252,28 +245,18 @@ export function CashuWalletLightningCard() {
           .filter((id) => !!id);
 
         // Remove spent proofs from the store
-        cashuStore.removeProofs(spentProofIds);
-
-        // Add 'keep' proofs back to store if they exist
-        if (result.keep && Array.isArray(result.keep)) {
-          for (const keepProof of result.keep) {
-            cashuStore.addProof(keepProof);
-          }
-        }
-
-        // Add change proofs to store
-        if (result.change && Array.isArray(result.change)) {
-          for (const changeProof of result.change) {
-            cashuStore.addProof(changeProof);
-          }
-        }
+        await updateProofs({
+          mintUrl,
+          proofsToAdd: [...result.keep, ...result.change],
+          proofsToRemove: selectedProofs,
+        });
 
         // Delete token events that contained the spent proofs
         // This is simplified - in a real implementation, we would have a way to map proofs to token events
         for (const token of tokens as unknown as TokenEvent[]) {
           if (token.id) {
             try {
-              await deleteToken(token.id);
+              await deleteMintProofs(token.id);
             } catch (err) {
               console.error("Error deleting token:", err);
             }

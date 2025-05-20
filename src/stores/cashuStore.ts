@@ -2,19 +2,33 @@ import { Keys, type Proof } from '@cashu/cashu-ts'
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { GetInfoResponse, MintKeyset, MintKeys } from '@cashu/cashu-ts'
+import { CashuToken } from '@/lib/cashu';
+
+interface ProofWithEventId extends Proof {
+  eventId: string;
+}
+
+export interface Nip60TokenEvent {
+  id: string;
+  token: CashuToken;
+  createdAt: number;
+}
+
 interface CashuStore {
-  mints: { url: string, mintInfo?: GetInfoResponse, keysets?: MintKeyset[], keys?: Record<string, MintKeys>[] }[];
-  proofs: Proof[];
+  mints: { url: string, mintInfo?: GetInfoResponse, keysets?: MintKeyset[], keys?: Record<string, MintKeys>[], events?: Nip60TokenEvent[] }[];
+  proofs: ProofWithEventId[];
   privkey?: string;
 
   addMint: (url: string) => void;
   setMintInfo: (url: string, mintInfo: GetInfoResponse) => void;
   setKeysets: (url: string, keysets: MintKeyset[]) => void;
   setKeys: (url: string, keys: Record<string, MintKeys>[]) => void;
-  addProof: (proof: Proof) => void;
+  addProofs: (proofs: Proof[], eventId: string) => void;
   removeProofs: (proofs: Proof[]) => void;
   setPrivkey: (privkey: string) => void;
   getMintProofs: (mintUrl: string) => Promise<Proof[]>;
+  getProofEventId: (proof: Proof) => string | undefined;
+  getProofsByEventId: (eventId: string) => Proof[];
 }
 
 // Usage:
@@ -48,16 +62,19 @@ export const useCashuStore = create<CashuStore>()(
         set({ mints: get().mints.map((mint) => mint.url === url ? { ...mint, keys } : mint) })
       },
 
-      addProof(proof) {
+      addProofs(proofs, eventId) {
         const existingProofs = get().proofs.map((p) => p.secret)
-        if (!existingProofs.includes(proof.secret)) {
-          set({ proofs: [...get().proofs, proof] })
+        for (const proof of proofs) {
+          if (!existingProofs.includes(proof.secret)) {
+            set({ proofs: [...get().proofs, { ...proof, eventId }] })
+          }
         }
       },
 
-      removeProofs(proofs) {
-        // remove proofs from store by deleting all proof.secret from proofs array
-        set({ proofs: get().proofs.filter((proof) => !proofs.some((p) => p.secret === proof.secret)) })
+      removeProofs(proofs: Proof[]) {
+        set((state) => ({
+          proofs: state.proofs.filter((proof) => !proofs.some((p) => p.secret === proof.secret))
+        }));
       },
 
       setPrivkey(privkey) {
@@ -75,6 +92,14 @@ export const useCashuStore = create<CashuStore>()(
         // get all proofs for the keysets from store
         const proofs = get().proofs.filter((proof) => activeKeysets.some((keyset) => keyset.id === proof.id));
         return proofs;
+      },
+
+      getProofEventId(proof) {
+        return get().proofs.find((p) => p.secret === proof.secret)?.eventId;
+      },
+
+      getProofsByEventId(eventId: string) {
+        return get().proofs.filter((p) => p.eventId === eventId);
       }
     }),
     { name: 'cashu' },

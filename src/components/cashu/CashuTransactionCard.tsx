@@ -35,7 +35,7 @@ export function CashuTransactionCard() {
   const { user } = useCurrentUser();
   const { wallet } = useCashuWallet();
   const {
-    generateToken,
+    sendToken,
     receiveToken,
     isLoading,
     error: hookError,
@@ -55,7 +55,7 @@ export function CashuTransactionCard() {
     setSelectedMint(wallet.mints[0]);
   }
 
-  const handleGenerateToken = async () => {
+  const handlesendToken = async () => {
     if (!selectedMint) {
       setError("Please select a mint");
       return;
@@ -72,7 +72,7 @@ export function CashuTransactionCard() {
       setGeneratedToken("");
 
       const amountValue = parseInt(amount);
-      const token = await generateToken(selectedMint, amountValue);
+      const token = await sendToken(selectedMint, amountValue);
 
       setGeneratedToken(token);
       setSuccess(`Token generated for ${amountValue} sats`);
@@ -180,7 +180,7 @@ export function CashuTransactionCard() {
 
                 <Button
                   className="w-full"
-                  onClick={handleGenerateToken}
+                  onClick={handlesendToken}
                   disabled={!selectedMint || !amount || !user || isLoading}
                 >
                   {isLoading ? "Generating..." : "Generate Token"}

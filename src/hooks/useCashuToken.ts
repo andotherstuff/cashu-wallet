@@ -8,7 +8,7 @@ export function useCashuToken() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const cashuStore = useCashuStore();
-  const { createToken, deleteToken, createHistory } = useCashuWallet();
+  const { createHistory, updateProofs } = useCashuWallet();
 
   /**
    * Generate a send token
@@ -16,7 +16,7 @@ export function useCashuToken() {
    * @param amount Amount to send in satoshis
    * @returns The encoded token string
    */
-  const generateToken = async (mintUrl: string, amount: number): Promise<string> => {
+  const sendToken = async (mintUrl: string, amount: number): Promise<string> => {
     setIsLoading(true);
     setError(null);
 
@@ -43,15 +43,6 @@ export function useCashuToken() {
           C: p.C || ''
         }))
       });
-
-      // Update store: remove sent proofs and add keep proofs
-      cashuStore.removeProofs(sentProofIds);
-
-      // Store keep proofs (possibly new ones from change)
-      for (const proof of proofsToKeep) {
-        cashuStore.addProof(proof);
-      }
-
       // Create new token for the proofs we're keeping
       if (proofsToKeep.length > 0) {
         const keepTokenData: CashuToken = {
@@ -64,7 +55,8 @@ export function useCashuToken() {
           }))
         };
 
-        await createToken(keepTokenData);
+        // update proofs
+        await updateProofs({ mintUrl, proofsToAdd: keepTokenData.proofs, proofsToRemove: [...proofsToSend, ...proofs] });
       }
 
       // Create history event
@@ -110,12 +102,6 @@ export function useCashuToken() {
 
       // Receive proofs from token
       const receivedProofs = await wallet.receive(token);
-
-      // Store received proofs
-      for (const proof of receivedProofs) {
-        cashuStore.addProof(proof);
-      }
-
       // Create token event in Nostr
       const receivedTokenData: CashuToken = {
         mint: mintUrl,
@@ -129,7 +115,7 @@ export function useCashuToken() {
 
       try {
         // Attempt to create token in Nostr, but don't rely on the return value
-        await createToken(receivedTokenData);
+        await updateProofs({ mintUrl, proofsToAdd: receivedTokenData.proofs, proofsToRemove: [] });
       } catch (err) {
         console.error('Error storing token in Nostr:', err);
       }
@@ -152,7 +138,7 @@ export function useCashuToken() {
   };
 
   return {
-    generateToken,
+    sendToken,
     receiveToken,
     isLoading,
     error
