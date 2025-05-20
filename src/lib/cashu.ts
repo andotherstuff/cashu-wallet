@@ -1,5 +1,7 @@
 // Types and utilities for Cashu wallet (NIP-60)
 
+import { Proof } from "@cashu/cashu-ts";
+
 export interface CashuProof {
   id: string;
   amount: number;
@@ -14,7 +16,7 @@ export interface CashuToken {
 }
 
 export interface CashuWallet {
-  privkey?: string; // Private key used to unlock P2PK ecash
+  privkey: string; // Private key used to unlock P2PK ecash
   mints: string[]; // List of mint URLs
 }
 
@@ -36,17 +38,11 @@ export const CASHU_EVENT_KINDS = {
 };
 
 // Helper function to calculate total balance from tokens
-export function calculateBalance(tokens: CashuToken[]): { [mint: string]: number } {
+export function calculateBalance(proofs: Proof[]): { [mint: string]: number } {
   const balances: { [mint: string]: number } = {};
   
-  for (const token of tokens) {
-    if (!balances[token.mint]) {
-      balances[token.mint] = 0;
-    }
-    
-    for (const proof of token.proofs) {
-      balances[token.mint] += proof.amount;
-    }
+  for (const proof of proofs) {
+    balances[proof.amount] += proof.amount;
   }
   
   return balances;

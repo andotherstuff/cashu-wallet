@@ -3,6 +3,7 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { CASHU_EVENT_KINDS, CashuWallet, CashuToken } from '@/lib/cashu';
 import { nip44 } from 'nostr-tools';
+import { useCashuStore } from '@/stores/cashuStore';
 
 /**
  * Hook to fetch and manage the user's Cashu wallet
@@ -11,6 +12,7 @@ export function useCashuWallet() {
   const { nostr } = useNostr();
   const { user } = useCurrentUser();
   const queryClient = useQueryClient();
+  const cashuStore = useCashuStore();
 
   // Fetch wallet information (kind 17375)
   const walletQuery = useQuery({
@@ -35,13 +37,16 @@ export function useCashuWallet() {
         }
         
         const decrypted = await user.signer.nip44.decrypt(user.pubkey, event.content);
-        let walletData = JSON.parse(decrypted) as CashuWallet;
+        const walletData = JSON.parse(decrypted) as CashuWallet;
         
         // Ensure wallet has required properties
         if (!walletData.mints) {
           walletData.mints = [];
         }
         
+        cashuStore.addMints(walletData.mints);
+        cashuStore.setPrivkey(walletData.privkey);
+
         return {
           id: event.id,
           wallet: walletData,

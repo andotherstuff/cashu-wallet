@@ -9,25 +9,33 @@ import { useCashuWallet } from '@/hooks/useCashuWallet';
 import { calculateBalance, formatBalance } from '@/lib/cashu';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { AlertCircle, Plus, Trash } from 'lucide-react';
+import { useCashuStore } from '@/stores/cashuStore';
 
 export function CashuWalletCard() {
   const { user } = useCurrentUser();
-  const { wallet, tokens, isLoading, createWallet } = useCashuWallet();
+  const { wallet, isLoading, createWallet } = useCashuWallet();
+  const cashuStore = useCashuStore();
   const [newMint, setNewMint] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   // Calculate total balance across all mints
-  const balances = calculateBalance(tokens.map(t => t.token));
+  const balances = calculateBalance(cashuStore.proofs);
   
   const handleCreateWallet = () => {
     if (!user) {
       setError('You must be logged in to create a wallet');
       return;
     }
+
+    if (!cashuStore.privkey) {
+      setError('No private key found');
+      return;
+    }
     
     // Create a new wallet with the default mint
     createWallet({
-      mints: ['https://cashu.space']
+      privkey: cashuStore.privkey,
+      mints: cashuStore.mints.map(m => m.url),
     });
   };
   
