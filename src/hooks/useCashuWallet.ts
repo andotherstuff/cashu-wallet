@@ -29,21 +29,21 @@ export function useCashuWallet() {
       }
 
       const event = events[0];
-      
+
       try {
         // Decrypt wallet content
         if (!user.signer.nip44) {
           throw new Error('NIP-44 encryption not supported by your signer');
         }
-        
+
         const decrypted = await user.signer.nip44.decrypt(user.pubkey, event.content);
         const walletData = JSON.parse(decrypted) as CashuWallet;
-        
+
         // Ensure wallet has required properties
         if (!walletData.mints) {
           walletData.mints = [];
         }
-        
+
         cashuStore.addMints(walletData.mints);
         cashuStore.setPrivkey(walletData.privkey);
 
@@ -81,15 +81,19 @@ export function useCashuWallet() {
           if (!user.signer.nip44) {
             throw new Error('NIP-44 encryption not supported by your signer');
           }
-          
+
           const decrypted = await user.signer.nip44.decrypt(user.pubkey, event.content);
           const tokenData = JSON.parse(decrypted) as CashuToken;
-          
+
           tokens.push({
             id: event.id,
             token: tokenData,
             createdAt: event.created_at
           });
+
+          for (const proof of tokenData.proofs) {
+            cashuStore.addProof(proof);
+          }
         } catch (error) {
           console.error('Failed to decrypt token data:', error);
         }
@@ -110,7 +114,7 @@ export function useCashuWallet() {
 
       // Encrypt wallet data
       const content = await user.signer.nip44.encrypt(
-        user.pubkey, 
+        user.pubkey,
         JSON.stringify(walletData)
       );
 
@@ -125,7 +129,7 @@ export function useCashuWallet() {
       // Publish event
       await nostr.event(event);
       await new Promise(resolve => setTimeout(resolve, 1000)); // Wait for event to be published
-      
+
       return event;
     },
     onSuccess: () => {
@@ -143,7 +147,7 @@ export function useCashuWallet() {
 
       // Encrypt token data
       const content = await user.signer.nip44.encrypt(
-        user.pubkey, 
+        user.pubkey,
         JSON.stringify(tokenData)
       );
 
@@ -157,7 +161,7 @@ export function useCashuWallet() {
 
       // Publish event
       await nostr.event(event);
-      
+
       return event;
     },
     onSuccess: () => {
@@ -183,7 +187,7 @@ export function useCashuWallet() {
 
       // Publish event
       await nostr.event(event);
-      
+
       return event;
     },
     onSuccess: () => {
@@ -193,10 +197,10 @@ export function useCashuWallet() {
 
   // Create spending history event
   const createHistoryMutation = useMutation({
-    mutationFn: async ({ 
-      direction, 
-      amount, 
-      createdTokens = [], 
+    mutationFn: async ({
+      direction,
+      amount,
+      createdTokens = [],
       destroyedTokens = [],
       redeemedTokens = []
     }: {
@@ -221,7 +225,7 @@ export function useCashuWallet() {
 
       // Encrypt content
       const content = await user.signer.nip44.encrypt(
-        user.pubkey, 
+        user.pubkey,
         JSON.stringify(contentData)
       );
 
@@ -235,7 +239,7 @@ export function useCashuWallet() {
 
       // Publish event
       await nostr.event(event);
-      
+
       return event;
     }
   });

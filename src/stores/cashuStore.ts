@@ -9,6 +9,7 @@ interface CashuStore {
 
   addMints: (urls: string[]) => void;
   addProof: (proof: Proof) => void;
+  removeProofs: (proofIds: string[]) => void;
   setPrivkey: (privkey: string) => void;
 }
 
@@ -35,6 +36,14 @@ export const useCashuStore = create<CashuStore>()(
 
       addProof(proof) {
         set({ proofs: [...get().proofs, proof] })
+      },
+
+      removeProofs(proofIds) {
+        set({
+          proofs: get().proofs.filter(proof =>
+            !proofIds.includes(proof.id || '')
+          )
+        })
       },
 
       setPrivkey(privkey) {

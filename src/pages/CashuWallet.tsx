@@ -1,8 +1,8 @@
-import { LoginArea } from '@/components/auth/LoginArea';
-import { CashuWalletCard } from '@/components/cashu/CashuWalletCard';
-import { CashuHistoryCard } from '@/components/cashu/CashuHistoryCard';
-import { CashuTransactionCard } from '@/components/cashu/CashuTransactionCard';
-import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { LoginArea } from "@/components/auth/LoginArea";
+import { CashuWalletSection } from "@/components/cashu/CashuWalletSection";
+import { CashuHistoryCard } from "@/components/cashu/CashuHistoryCard";
+import { CashuTransactionCard } from "@/components/cashu/CashuTransactionCard";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 export function CashuWallet() {
   const { user } = useCurrentUser();
@@ -17,12 +17,11 @@ export function CashuWallet() {
         <LoginArea />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="space-y-6">
-          <CashuWalletCard />
+      <div className="grid grid-cols-1 gap-6">
+        <CashuWalletSection />
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <CashuTransactionCard />
-        </div>
-        <div>
           <CashuHistoryCard />
         </div>
       </div>
@@ -31,7 +30,8 @@ export function CashuWallet() {
         <div className="mt-8 p-4 bg-muted rounded-lg text-center">
           <p className="text-lg font-medium">Log in to use your Cashu wallet</p>
           <p className="text-muted-foreground">
-            Your wallet data is stored encrypted on Nostr relays and follows you across applications.
+            Your wallet data is stored encrypted on Nostr relays and follows you
+            across applications.
           </p>
         </div>
       )}
