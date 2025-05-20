@@ -1,7 +1,6 @@
 // Types and utilities for Cashu wallet (NIP-60)
 
-import { Proof } from "@cashu/cashu-ts";
-
+import { CashuMint, Proof, CashuWallet, GetInfoResponse, MintKeyset, MintKeys } from "@cashu/cashu-ts";
 export interface CashuProof {
   id: string;
   amount: number;
@@ -15,7 +14,7 @@ export interface CashuToken {
   del?: string[]; // token-ids that were destroyed by the creation of this token
 }
 
-export interface CashuWallet {
+export interface CashuWalletStruct {
   privkey: string; // Private key used to unlock P2PK ecash
   mints: string[]; // List of mint URLs
 }
@@ -40,11 +39,11 @@ export const CASHU_EVENT_KINDS = {
 // Helper function to calculate total balance from tokens
 export function calculateBalance(proofs: Proof[]): { [mint: string]: number } {
   const balances: { [mint: string]: number } = {};
-  
+
   for (const proof of proofs) {
     balances[proof.amount] += proof.amount;
   }
-  
+
   return balances;
 }
 
@@ -57,4 +56,22 @@ export function formatBalance(amount: number): string {
   } else {
     return `${amount} sats`;
   }
+}
+
+export async function activateMint(mintUrl: string): Promise<{ mintInfo: GetInfoResponse, keysets: MintKeyset[] }> {
+  const mint = new CashuMint(mintUrl);
+  const wallet = new CashuWallet(mint);
+  const mintInfo = await wallet.getMintInfo();
+  const keysets = await wallet.getKeySets();
+  return { mintInfo, keysets };
+}
+
+export async function updateMintKeys(mintUrl: string): Promise<{ keys: Record<string, MintKeys>[] }> {
+  const mint = new CashuMint(mintUrl);
+  const wallet = new CashuWallet(mint);
+  const keysets = await wallet.getKeySets();
+  const keys = await Promise.all(keysets.map(async (keyset) => {
+    return { [keyset.id]: await wallet.getKeys(keyset.id) };
+  }));
+  return { keys };
 }

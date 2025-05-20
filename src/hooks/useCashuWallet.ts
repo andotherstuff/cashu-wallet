@@ -1,7 +1,7 @@
 import { useNostr } from '@/hooks/useNostr';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { CASHU_EVENT_KINDS, CashuWallet, CashuToken } from '@/lib/cashu';
+import { CASHU_EVENT_KINDS, CashuWalletStruct, CashuToken, activateMint, updateMintKeys } from '@/lib/cashu';
 import { nip44 } from 'nostr-tools';
 import { useCashuStore } from '@/stores/cashuStore';
 
@@ -37,14 +37,22 @@ export function useCashuWallet() {
         }
 
         const decrypted = await user.signer.nip44.decrypt(user.pubkey, event.content);
-        const walletData = JSON.parse(decrypted) as CashuWallet;
+        const walletData = JSON.parse(decrypted) as CashuWalletStruct;
 
         // Ensure wallet has required properties
         if (!walletData.mints) {
           walletData.mints = [];
         }
 
-        cashuStore.addMints(walletData.mints);
+        for (const mint of walletData.mints) {
+          const { mintInfo, keysets } = await activateMint(mint);
+          cashuStore.addMint(mint);
+          cashuStore.setMintInfo(mint, mintInfo);
+          cashuStore.setKeysets(mint, keysets);
+          const { keys } = await updateMintKeys(mint);
+          cashuStore.setKeys(mint, keys);
+        }
+
         cashuStore.setPrivkey(walletData.privkey);
 
         return {
@@ -106,7 +114,7 @@ export function useCashuWallet() {
 
   // Create or update wallet
   const createWalletMutation = useMutation({
-    mutationFn: async (walletData: CashuWallet) => {
+    mutationFn: async (walletData: CashuWalletStruct) => {
       if (!user) throw new Error('User not logged in');
       if (!user.signer.nip44) {
         throw new Error('NIP-44 encryption not supported by your signer');

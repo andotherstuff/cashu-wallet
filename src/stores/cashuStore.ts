@@ -1,13 +1,16 @@
-import { type Proof } from '@cashu/cashu-ts'
+import { Keys, type Proof } from '@cashu/cashu-ts'
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-
+import { GetInfoResponse, MintKeyset, MintKeys } from '@cashu/cashu-ts'
 interface CashuStore {
-  mints: { url: string }[];
+  mints: { url: string, mintInfo?: GetInfoResponse, keysets?: MintKeyset[], keys?: Record<string, MintKeys>[] }[];
   proofs: Proof[];
   privkey?: string;
 
-  addMints: (urls: string[]) => void;
+  addMint: (url: string) => void;
+  setMintInfo: (url: string, mintInfo: GetInfoResponse) => void;
+  setKeysets: (url: string, keysets: MintKeyset[]) => void;
+  setKeys: (url: string, keys: Record<string, MintKeys>[]) => void;
   addProof: (proof: Proof) => void;
   removeProofs: (proofIds: string[]) => void;
   setPrivkey: (privkey: string) => void;
@@ -23,15 +26,25 @@ export const useCashuStore = create<CashuStore>()(
     (set, get) => ({
       mints: [],
       proofs: [],
-
       isLoading: false,
 
-      addMints(urls) {
-        const newMints = urls.map((url) => ({ url }))
+      addMint(url) {
         const existingMints = get().mints.map((mint) => mint.url)
-        const uniqueMints = newMints.filter((mint) => !existingMints.includes(mint.url))
+        if (!existingMints.includes(url)) {
+          set({ mints: [...get().mints, { url }] })
+        }
+      },
 
-        set({ mints: [...get().mints, ...uniqueMints] })
+      setMintInfo(url, mintInfo) {
+        set({ mints: get().mints.map((mint) => mint.url === url ? { ...mint, mintInfo } : mint) })
+      },
+
+      setKeysets(url, keysets) {
+        set({ mints: get().mints.map((mint) => mint.url === url ? { ...mint, keysets } : mint) })
+      },
+
+      setKeys(url, keys) {
+        set({ mints: get().mints.map((mint) => mint.url === url ? { ...mint, keys } : mint) })
       },
 
       addProof(proof) {
