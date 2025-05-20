@@ -1,0 +1,183 @@
+import { useState } from 'react';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Separator } from '@/components/ui/separator';
+import { useCashuWallet } from '@/hooks/useCashuWallet';
+import { calculateBalance, formatBalance } from '@/lib/cashu';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { AlertCircle, Plus, Trash } from 'lucide-react';
+
+export function CashuWalletCard() {
+  const { user } = useCurrentUser();
+  const { wallet, tokens, isLoading, createWallet } = useCashuWallet();
+  const [newMint, setNewMint] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  // Calculate total balance across all mints
+  const balances = calculateBalance(tokens.map(t => t.token));
+  
+  const handleCreateWallet = () => {
+    if (!user) {
+      setError('You must be logged in to create a wallet');
+      return;
+    }
+    
+    // Create a new wallet with the default mint
+    createWallet({
+      mints: ['https://cashu.space']
+    });
+  };
+  
+  const handleAddMint = () => {
+    if (!wallet || !wallet.mints) return;
+    
+    try {
+      // Validate URL
+      new URL(newMint);
+      
+      // Add mint to wallet
+      createWallet({
+        ...wallet,
+        mints: [...wallet.mints, newMint]
+      });
+      
+      // Clear input
+      setNewMint('');
+      setError(null);
+    } catch (e) {
+      setError('Invalid mint URL');
+    }
+  };
+  
+  const handleRemoveMint = (mintUrl: string) => {
+    if (!wallet || !wallet.mints) return;
+    
+    // Don't allow removing the last mint
+    if (wallet.mints.length <= 1) {
+      setError('Cannot remove the last mint');
+      return;
+    }
+    
+    // Remove mint from wallet
+    createWallet({
+      ...wallet,
+      mints: wallet.mints.filter(m => m !== mintUrl)
+    });
+  };
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Cashu Wallet</CardTitle>
+          <CardDescription>Loading wallet...</CardDescription>
+        </CardHeader>
+      </Card>
+    );
+  }
+
+  if (!wallet) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Cashu Wallet</CardTitle>
+          <CardDescription>You don't have a Cashu wallet yet</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button onClick={handleCreateWallet} disabled={!user}>
+            Create Wallet
+          </Button>
+          {!user && (
+            <Alert variant="destructive" className="mt-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                You need to log in to create a wallet
+              </AlertDescription>
+            </Alert>
+          )}
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Cashu Wallet</CardTitle>
+        <CardDescription>Manage your Cashu ecash</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          <div>
+            <h3 className="text-lg font-medium">Balances</h3>
+            {Object.entries(balances).length > 0 ? (
+              <div className="mt-2 space-y-2">
+                {Object.entries(balances).map(([mint, amount]) => (
+                  <div key={mint} className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground truncate max-w-[200px]">
+                      {mint}
+                    </span>
+                    <span className="font-medium">{formatBalance(amount)}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground mt-2">No balance yet</p>
+            )}
+          </div>
+          
+          <Separator />
+          
+          <div>
+            <h3 className="text-lg font-medium">Mints</h3>
+            <div className="mt-2 space-y-2">
+              {wallet.mints && wallet.mints.map((mint) => (
+                <div key={mint} className="flex justify-between items-center">
+                  <span className="text-sm truncate max-w-[200px]">{mint}</span>
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
+                    onClick={() => handleRemoveMint(mint)}
+                  >
+                    <Trash className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+          
+          {error && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+          
+          <div className="flex items-end gap-2">
+            <div className="grid w-full gap-1.5">
+              <Label htmlFor="mint">Add Mint</Label>
+              <Input
+                id="mint"
+                placeholder="https://mint.example.com"
+                value={newMint}
+                onChange={(e) => setNewMint(e.target.value)}
+              />
+            </div>
+            <Button onClick={handleAddMint}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+      <CardFooter className="flex justify-between">
+        <p className="text-xs text-muted-foreground">
+          NIP-60 Cashu Wallet
+        </p>
+      </CardFooter>
+    </Card>
+  );
+}
