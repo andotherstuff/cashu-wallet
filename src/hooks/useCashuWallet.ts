@@ -124,6 +124,7 @@ export function useCashuWallet() {
 
       // Publish event
       await nostr.event(event);
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Wait for event to be published
       
       return event;
     },
