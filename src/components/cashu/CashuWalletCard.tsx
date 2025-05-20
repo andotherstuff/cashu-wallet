@@ -1,3 +1,4 @@
+import { bytesToHex } from '@noble/hashes/utils';
 import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,6 +11,7 @@ import { calculateBalance, formatBalance } from '@/lib/cashu';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { AlertCircle, Plus, Trash } from 'lucide-react';
 import { useCashuStore } from '@/stores/cashuStore';
+import { generateSecretKey } from 'nostr-tools';
 
 export function CashuWalletCard() {
   const { user } = useCurrentUser();
@@ -27,14 +29,12 @@ export function CashuWalletCard() {
       return;
     }
 
-    if (!cashuStore.privkey) {
-      setError('No private key found');
-      return;
-    }
+    const privkey = bytesToHex(generateSecretKey()).slice(2);
+    cashuStore.setPrivkey(privkey);
     
     // Create a new wallet with the default mint
     createWallet({
-      privkey: cashuStore.privkey,
+      privkey,
       mints: cashuStore.mints.map(m => m.url),
     });
   };

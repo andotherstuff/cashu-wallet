@@ -15,6 +15,7 @@
   "dependencies": {
     "@cashu/cashu-ts": "^2.5.2",
     "@hookform/resolvers": "^3.9.0",
+    "@noble/hashes": "^1.8.0",
     "@nostrify/nostrify": "npm:@jsr/nostrify__nostrify@^0.46.1",
     "@nostrify/react": "npm:@jsr/nostrify__react@^0.2.5",
     "@radix-ui/react-accordion": "^1.2.0",
