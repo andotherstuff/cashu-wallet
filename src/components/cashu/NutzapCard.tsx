@@ -153,8 +153,8 @@ export function NutzapCard() {
               redeemed: false, // New nutzaps are not redeemed yet
             };
 
-            // Add to received nutzaps, putting newest first
-            setReceivedNutzaps((prev) => [nutzap, ...prev]);
+            // Add to received nutzaps, putting newest last
+            setReceivedNutzaps((prev) => [...prev, nutzap]);
 
             // Auto-redeem the new nutzap
             try {
