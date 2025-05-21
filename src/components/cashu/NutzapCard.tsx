@@ -24,7 +24,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useCashuStore } from "@/stores/cashuStore";
 import { useCashuToken } from "@/hooks/useCashuToken";
 import { useReceivedNutzaps, ReceivedNutzap } from "@/hooks/useReceivedNutzaps";
-import { useSendNutzap } from "@/hooks/useSendNutzap";
+import { useSendNutzap, useFetchNutzapInfo } from "@/hooks/useSendNutzap";
 import { useNutzapRedemption } from "@/hooks/useNutzapRedemption";
 import { nip19 } from "nostr-tools";
 import { Proof } from "@cashu/cashu-ts";
@@ -36,6 +36,7 @@ export function NutzapCard() {
   const cashuStore = useCashuStore();
   const { sendToken } = useCashuToken();
   const { sendNutzap, isSending, error: sendError } = useSendNutzap();
+  const { fetchNutzapInfo, isFetching } = useFetchNutzapInfo();
   const { createRedemption, isCreatingRedemption } = useNutzapRedemption();
   const {
     data: receivedNutzaps,
@@ -101,19 +102,24 @@ export function NutzapCard() {
         return;
       }
 
+      // First fetch the recipient's nutzap info
+      const recipientInfo = await fetchNutzapInfo(recipientPubkey);
+
+      console.log("Recipient info", recipientInfo);
+
       // Generate token (mint) with the specified amount and get proofs for the nutzap
       const amountValue = parseInt(amount);
 
-      // Get proofs for the nutzap using the forNutzap=true flag
+      // Send token using p2pk pubkey from recipient info
       const proofs = (await sendToken(
         cashuStore.activeMintUrl,
         amountValue,
-        recipientPubkey
+        recipientInfo.p2pkPubkey
       )) as Proof[];
 
-      // Send nutzap
+      // Send nutzap using recipient info
       await sendNutzap({
-        recipientPubkey: recipientPubkey,
+        recipientInfo,
         comment,
         proofs,
         mintUrl: cashuStore.activeMintUrl,

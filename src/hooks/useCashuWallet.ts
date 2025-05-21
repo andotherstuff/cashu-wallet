@@ -2,13 +2,14 @@ import { useNostr } from '@/hooks/useNostr';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { CASHU_EVENT_KINDS, CashuWalletStruct, CashuToken, activateMint, updateMintKeys } from '@/lib/cashu';
-import { nip44, NostrEvent } from 'nostr-tools';
+import { nip44, NostrEvent, getPublicKey } from 'nostr-tools';
 import { useCashuStore, Nip60TokenEvent } from '@/stores/cashuStore';
 import { Proof } from '@cashu/cashu-ts';
 import { getLastEventTimestamp } from '@/lib/nostrTimestamps';
 import { NSchema as n } from '@nostrify/nostrify';
 import { z } from 'zod';
 import { useNutzaps } from '@/hooks/useNutzaps';
+import { hexToBytes } from '@noble/hashes/utils';
 
 /**
  * Hook to fetch and manage the user's Cashu wallet
@@ -121,7 +122,7 @@ export function useCashuWallet() {
             url: mint,
             units: ['sat']
           })),
-          p2pkPubkey: walletData.privkey
+          p2pkPubkey: "02" + getPublicKey(hexToBytes(walletData.privkey))
         });
       } catch (error) {
         console.error('Failed to create nutzap informational event:', error);

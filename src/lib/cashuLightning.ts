@@ -151,7 +151,7 @@ export async function payMeltQuote(mintUrl: string, quoteId: string, proofs: Pro
 
     // Perform coin selection
     const { keep, send } = await wallet.send(amountToSend, proofs, {
-      includeFees: true
+      includeFees: true, privkey: useCashuStore.getState().privkey
     });
 
     // Melt the selected proofs to pay the Lightning invoice

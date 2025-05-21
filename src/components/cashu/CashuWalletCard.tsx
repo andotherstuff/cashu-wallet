@@ -60,7 +60,7 @@ export function CashuWalletCard() {
       return;
     }
 
-    const privkey = bytesToHex(generateSecretKey()).slice(2);
+    const privkey = bytesToHex(generateSecretKey());
     cashuStore.setPrivkey(privkey);
 
     // Create a new wallet with the default mint

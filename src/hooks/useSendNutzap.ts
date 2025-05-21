@@ -4,8 +4,76 @@ import { useMutation } from '@tanstack/react-query';
 import { CASHU_EVENT_KINDS } from '@/lib/cashu';
 import { NostrEvent } from 'nostr-tools';
 import { Proof } from '@cashu/cashu-ts';
-import { useNutzapStore } from '@/stores/nutzapStore';
+import { useNutzapStore, NutzapInformationalEvent } from '@/stores/nutzapStore';
 import { useCashuStore } from '@/stores/cashuStore';
+
+/**
+ * Hook to fetch a recipient's nutzap information
+ */
+export function useFetchNutzapInfo() {
+  const { nostr } = useNostr();
+  const nutzapStore = useNutzapStore();
+
+  // Mutation to fetch and store nutzap info
+  const fetchNutzapInfoMutation = useMutation({
+    mutationFn: async (recipientPubkey: string): Promise<NutzapInformationalEvent> => {
+      // First check if we have it in the store
+      const storedInfo = nutzapStore.getNutzapInfo(recipientPubkey);
+      if (storedInfo) {
+        return storedInfo;
+      }
+
+      // Otherwise fetch it from the network
+      const events = await nostr.query([
+        { kinds: [CASHU_EVENT_KINDS.ZAPINFO], authors: [recipientPubkey], limit: 1 }
+      ], { signal: AbortSignal.timeout(5000) });
+
+      if (events.length === 0) {
+        throw new Error('Recipient has no nutzap informational event');
+      }
+
+      const event = events[0];
+
+      // Parse the nutzap informational event
+      const relays = event.tags
+        .filter(tag => tag[0] === 'relay')
+        .map(tag => tag[1]);
+
+      const mints = event.tags
+        .filter(tag => tag[0] === 'mint')
+        .map(tag => {
+          const url = tag[1];
+          const units = tag.slice(2); // Get additional unit markers if any
+          return { url, units: units.length > 0 ? units : undefined };
+        });
+
+      const p2pkPubkeyTag = event.tags.find(tag => tag[0] === 'pubkey');
+      if (!p2pkPubkeyTag) {
+        throw new Error('No pubkey tag found in the nutzap informational event');
+      }
+
+      const p2pkPubkey = p2pkPubkeyTag[1];
+
+      const nutzapInfo: NutzapInformationalEvent = {
+        event,
+        relays,
+        mints,
+        p2pkPubkey
+      };
+
+      // Store the info for future use
+      nutzapStore.setNutzapInfo(recipientPubkey, nutzapInfo);
+
+      return nutzapInfo;
+    }
+  });
+
+  return {
+    fetchNutzapInfo: fetchNutzapInfoMutation.mutateAsync,
+    isFetching: fetchNutzapInfoMutation.isPending,
+    error: fetchNutzapInfoMutation.error
+  };
+}
 
 /**
  * Hook to create and send nutzap events
@@ -14,19 +82,18 @@ export function useSendNutzap() {
   const { nostr } = useNostr();
   const { user } = useCurrentUser();
   const cashuStore = useCashuStore();
-  const nutzapStore = useNutzapStore();
 
   // Mutation to create and send a nutzap event
   const sendNutzapMutation = useMutation({
     mutationFn: async ({
-      recipientPubkey,
+      recipientInfo,
       comment = '',
       proofs,
       mintUrl,
       eventId,
       relayHint
     }: {
-      recipientPubkey: string;
+      recipientInfo: NutzapInformationalEvent;
       comment?: string;
       proofs: Proof[];
       mintUrl: string;
@@ -34,53 +101,6 @@ export function useSendNutzap() {
       relayHint?: string; // Hint for relay where the event can be found
     }) => {
       if (!user) throw new Error('User not logged in');
-
-      // Get the recipient's nutzap informational event from the store
-      // or fetch it from the network
-      let recipientInfo = nutzapStore.getNutzapInfo(recipientPubkey);
-
-      if (!recipientInfo) {
-        // If not in the store, fetch it using nostr.query directly
-        const events = await nostr.query([
-          { kinds: [CASHU_EVENT_KINDS.ZAPINFO], authors: [recipientPubkey], limit: 1 }
-        ], { signal: AbortSignal.timeout(5000) });
-
-        if (events.length === 0) {
-          throw new Error('Recipient has no nutzap informational event');
-        }
-
-        const event = events[0];
-
-        // Parse the nutzap informational event
-        const relays = event.tags
-          .filter(tag => tag[0] === 'relay')
-          .map(tag => tag[1]);
-
-        const mints = event.tags
-          .filter(tag => tag[0] === 'mint')
-          .map(tag => {
-            const url = tag[1];
-            const units = tag.slice(2); // Get additional unit markers if any
-            return { url, units: units.length > 0 ? units : undefined };
-          });
-
-        const p2pkPubkeyTag = event.tags.find(tag => tag[0] === 'pubkey');
-        if (!p2pkPubkeyTag) {
-          throw new Error('No pubkey tag found in the nutzap informational event');
-        }
-
-        const p2pkPubkey = p2pkPubkeyTag[1];
-
-        recipientInfo = {
-          event,
-          relays,
-          mints,
-          p2pkPubkey
-        };
-
-        // Store the info for future use
-        nutzapStore.setNutzapInfo(recipientPubkey, recipientInfo);
-      }
 
       // Verify the mint is in the recipient's trusted list
       const recipientMints = recipientInfo.mints.map(mint => mint.url);
@@ -97,7 +117,7 @@ export function useSendNutzap() {
         ['u', mintUrl],
 
         // Add recipient pubkey
-        ['p', recipientPubkey],
+        ['p', recipientInfo.event.pubkey],
       ];
 
       // Add event tag if specified
@@ -113,13 +133,10 @@ export function useSendNutzap() {
         created_at: Math.floor(Date.now() / 1000)
       });
 
-      // Get the recipient's preferred relays
-      const recipientRelays = recipientInfo.relays;
-
       // Publish the event to the recipient's relays
       await nostr.event(event);
 
-      // Returns the event and info about the recipient
+      // Return the event
       return {
         event,
         recipientInfo
