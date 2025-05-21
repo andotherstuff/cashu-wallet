@@ -80,7 +80,7 @@ export function CashuTokenCard() {
       const amountValue = parseInt(amount);
       const token = await sendToken(cashuStore.activeMintUrl, amountValue);
 
-      setGeneratedToken(token);
+      setGeneratedToken(token as string);
       setSuccess(`Token generated for ${amountValue} sats`);
     } catch (error) {
       console.error("Error generating token:", error);
