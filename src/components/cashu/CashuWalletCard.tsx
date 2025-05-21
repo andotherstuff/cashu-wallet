@@ -16,10 +16,11 @@ import { Separator } from "@/components/ui/separator";
 import { useCashuWallet } from "@/hooks/useCashuWallet";
 import { calculateBalance, formatBalance } from "@/lib/cashu";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { AlertCircle, Plus, Trash } from "lucide-react";
+import { AlertCircle, ChevronDown, ChevronUp, Plus, Trash } from "lucide-react";
 import { useCashuStore } from "@/stores/cashuStore";
 import { generateSecretKey } from "nostr-tools";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 
 export function CashuWalletCard() {
   const { user } = useCurrentUser();
@@ -27,6 +28,7 @@ export function CashuWalletCard() {
   const cashuStore = useCashuStore();
   const [newMint, setNewMint] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [expandedMint, setExpandedMint] = useState<string | null>(null);
 
   // Calculate total balance across all mints
   const balances = calculateBalance(cashuStore.proofs);
@@ -90,11 +92,24 @@ export function CashuWalletCard() {
         cashuStore.setActiveMintUrl(remainingMints[0]);
       }
     }
+
+    // Close expanded view if open
+    if (expandedMint === mintUrl) {
+      setExpandedMint(null);
+    }
   };
 
   // Set active mint when clicking on a mint
   const handleSetActiveMint = (mintUrl: string) => {
     cashuStore.setActiveMintUrl(mintUrl);
+  };
+
+  const toggleExpandMint = (mintUrl: string) => {
+    if (expandedMint === mintUrl) {
+      setExpandedMint(null);
+    } else {
+      setExpandedMint(mintUrl);
+    }
   };
 
   const cleanMintUrl = (mintUrl: string) => {
@@ -155,55 +170,74 @@ export function CashuWalletCard() {
       <CardContent>
         <div className="space-y-4">
           <div>
-            <h3 className="text-lg font-medium">Balances</h3>
-            {Object.entries(balances).length > 0 ? (
+            <h3 className="text-lg font-medium">Mints</h3>
+            {wallet.mints && wallet.mints.length > 0 ? (
               <div className="mt-2 space-y-2">
-                {Object.entries(balances).map(([mint, amount]) => (
-                  <div key={mint} className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground truncate max-w-[200px]">
-                      {cleanMintUrl(mint)}
-                    </span>
-                    <span className="font-medium">{formatBalance(amount)}</span>
-                  </div>
-                ))}
+                {wallet.mints.map((mint) => {
+                  const amount = balances[mint] || 0;
+                  const isActive = cashuStore.activeMintUrl === mint;
+                  const isExpanded = expandedMint === mint;
+
+                  return (
+                    <div key={mint} className="space-y-1">
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-2">
+                          <button
+                            className="text-sm hover:text-primary text-left truncate max-w-[160px]"
+                            onClick={() => handleSetActiveMint(mint)}
+                          >
+                            {cleanMintUrl(mint)}
+                          </button>
+                          {isActive && (
+                            <Badge
+                              variant="secondary"
+                              className="h-5 px-1.5 bg-green-100 text-green-700 hover:bg-green-200"
+                            >
+                              Active
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">
+                            {formatBalance(amount)}
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => toggleExpandMint(mint)}
+                          >
+                            {isExpanded ? (
+                              <ChevronUp className="h-4 w-4" />
+                            ) : (
+                              <ChevronDown className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                      {isExpanded && (
+                        <div className="pl-4 flex justify-end pt-1">
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => handleRemoveMint(mint)}
+                          >
+                            <Trash className="h-4 w-4 mr-1" /> Remove Mint
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             ) : (
               <p className="text-sm text-muted-foreground mt-2">
-                No balance yet
+                No mints added yet
               </p>
             )}
           </div>
 
           <Separator />
-
-          <div>
-            <h3 className="text-lg font-medium">Mints</h3>
-            <div className="mt-2 space-y-2">
-              {wallet.mints &&
-                wallet.mints.map((mint) => (
-                  <div key={mint} className="flex justify-between items-center">
-                    <Button
-                      variant="ghost"
-                      className={cn(
-                        "px-3 py-1 h-auto text-sm truncate max-w-[200px] mr-2",
-                        cashuStore.activeMintUrl === mint &&
-                          "border-2 border-primary rounded-full"
-                      )}
-                      onClick={() => handleSetActiveMint(mint)}
-                    >
-                      {cleanMintUrl(mint)}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleRemoveMint(mint)}
-                    >
-                      <Trash className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
-            </div>
-          </div>
 
           {error && (
             <Alert variant="destructive">

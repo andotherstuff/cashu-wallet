@@ -1,8 +1,9 @@
 import { LoginArea } from "@/components/auth/LoginArea";
-import { CashuWalletSection } from "@/components/cashu/CashuWalletSection";
 import { CashuHistoryCard } from "@/components/cashu/CashuHistoryCard";
-import { CashuTransactionCard } from "@/components/cashu/CashuTransactionCard";
+import { CashuTokenCard } from "@/components/cashu/CashuTokenCard";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { CashuWalletLightningCard } from "@/components/cashu/CashuWalletLightningCard";
+import { CashuWalletCard } from "@/components/cashu/CashuWalletCard";
 
 export function CashuWallet() {
   const { user } = useCurrentUser();
@@ -17,13 +18,11 @@ export function CashuWallet() {
         <LoginArea />
       </div>
 
-      <div className="grid grid-cols-1 gap-6">
-        <CashuWalletSection />
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <CashuTransactionCard />
-          <CashuHistoryCard />
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <CashuWalletCard />
+        <CashuWalletLightningCard />
+        <CashuTokenCard />
+        <CashuHistoryCard />
       </div>
 
       {!user && (

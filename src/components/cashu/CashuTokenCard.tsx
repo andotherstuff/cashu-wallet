@@ -25,7 +25,7 @@ import { useCashuToken } from "@/hooks/useCashuToken";
 import QRCode from "react-qr-code";
 import { useCashuStore } from "@/stores/cashuStore";
 
-export function CashuTransactionCard() {
+export function CashuTokenCard() {
   const { user } = useCurrentUser();
   const { wallet } = useCashuWallet();
   const cashuStore = useCashuStore();
