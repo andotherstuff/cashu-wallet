@@ -54,7 +54,6 @@ export function CashuWalletLightningCard() {
   const [activeTab, setActiveTab] = useState("receive");
 
   const [receiveAmount, setReceiveAmount] = useState("");
-  const [selectedMint, setSelectedMint] = useState("");
   const [invoice, setInvoice] = useState("");
   const [currentMeltQuoteId, setcurrentMeltQuoteId] = useState("");
   const [paymentRequest, setPaymentRequest] = useState("");
@@ -71,8 +70,10 @@ export function CashuWalletLightningCard() {
 
   // Handle receive tab
   const handleCreateInvoice = async () => {
-    if (!selectedMint) {
-      setError("Please select a mint");
+    if (!cashuStore.activeMintUrl) {
+      setError(
+        "No active mint selected. Please select a mint in your wallet settings."
+      );
       return;
     }
 
@@ -86,14 +87,17 @@ export function CashuWalletLightningCard() {
       setError(null);
 
       const amount = parseInt(receiveAmount);
-      const invoiceData = await createLightningInvoice(selectedMint, amount);
+      const invoiceData = await createLightningInvoice(
+        cashuStore.activeMintUrl,
+        amount
+      );
 
       setInvoice(invoiceData.paymentRequest);
       setcurrentMeltQuoteId(invoiceData.quoteId);
       setPaymentRequest(invoiceData.paymentRequest);
 
       // Start polling for payment status
-      checkPaymentStatus(selectedMint, invoiceData.quoteId, amount);
+      checkPaymentStatus(cashuStore.activeMintUrl, invoiceData.quoteId, amount);
     } catch (error) {
       console.error("Error creating invoice:", error);
       setError(
@@ -184,26 +188,32 @@ export function CashuWalletLightningCard() {
 
   // Handle send tab
   const handleInvoiceInput = async (value: string) => {
-    if (!wallet || !wallet.mints || wallet.mints.length === 0) {
-      setError("No mints available");
+    if (!cashuStore.activeMintUrl) {
+      setError(
+        "No active mint selected. Please select a mint in your wallet settings."
+      );
       return;
     }
 
     setSendInvoice(value);
 
     // Create melt quote
-    const mintUrl = wallet.mints[0];
-    if (!mintUrl) {
-      setError("No mint available");
-      return;
-    }
-    const meltQuote = await createMeltQuote(mintUrl, value);
-    setcurrentMeltQuoteId(meltQuote.quote);
-    console.log(meltQuote);
+    const mintUrl = cashuStore.activeMintUrl;
+    try {
+      const meltQuote = await createMeltQuote(mintUrl, value);
+      setcurrentMeltQuoteId(meltQuote.quote);
+      console.log(meltQuote);
 
-    // Parse amount from invoice
-    setInvoiceAmount(meltQuote.amount);
-    setInvoiceFeeReserve(meltQuote.fee_reserve);
+      // Parse amount from invoice
+      setInvoiceAmount(meltQuote.amount);
+      setInvoiceFeeReserve(meltQuote.fee_reserve);
+    } catch (error) {
+      console.error("Error creating melt quote:", error);
+      setError(
+        "Failed to create melt quote: " +
+          (error instanceof Error ? error.message : String(error))
+      );
+    }
   };
 
   // Start QR scanner
@@ -220,8 +230,10 @@ export function CashuWalletLightningCard() {
       return;
     }
 
-    if (!wallet || !wallet.mints || wallet.mints.length === 0) {
-      setError("No mints available");
+    if (!cashuStore.activeMintUrl) {
+      setError(
+        "No active mint selected. Please select a mint in your wallet settings."
+      );
       return;
     }
 
@@ -234,8 +246,8 @@ export function CashuWalletLightningCard() {
       setIsProcessing(true);
       setError(null);
 
-      // Find mint to use
-      const mintUrl = wallet.mints[0]; // For simplicity, using the first mint
+      // Get active mint
+      const mintUrl = cashuStore.activeMintUrl;
 
       // Select proofs to spend
       const selectedProofs = [...cashuStore.proofs];
@@ -330,7 +342,7 @@ export function CashuWalletLightningCard() {
     <Card>
       <CardHeader>
         <CardTitle>Lightning</CardTitle>
-        <CardDescription>Send and receive sats via Lightning</CardDescription>
+        <CardDescription>Send and receive via Lightning</CardDescription>
       </CardHeader>
       <CardContent>
         <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -343,22 +355,6 @@ export function CashuWalletLightningCard() {
             {!invoice ? (
               // Show form to create invoice
               <>
-                <div className="space-y-2">
-                  <Label htmlFor="mint">Select Mint</Label>
-                  <Select value={selectedMint} onValueChange={setSelectedMint}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a mint" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {wallet.mints.map((mint) => (
-                        <SelectItem key={mint} value={mint}>
-                          {mint}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
                 <div className="space-y-2">
                   <Label htmlFor="amount">Amount (sats)</Label>
                   <Input
@@ -373,7 +369,9 @@ export function CashuWalletLightningCard() {
                 <Button
                   className="w-full"
                   onClick={handleCreateInvoice}
-                  disabled={isProcessing || !selectedMint || !receiveAmount}
+                  disabled={
+                    isProcessing || !cashuStore.activeMintUrl || !receiveAmount
+                  }
                 >
                   <Zap className="h-4 w-4 mr-2" />
                   {isProcessing
@@ -429,11 +427,10 @@ export function CashuWalletLightningCard() {
 
           <TabsContent value="send" className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="invoice">Lightning Invoice</Label>
               <div className="relative">
                 <Input
                   id="invoice"
-                  placeholder="lnbc..."
+                  placeholder="Lightning invoice"
                   value={sendInvoice}
                   onChange={(e) => handleInvoiceInput(e.target.value)}
                 />

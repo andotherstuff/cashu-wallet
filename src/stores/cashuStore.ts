@@ -18,6 +18,7 @@ interface CashuStore {
   mints: { url: string, mintInfo?: GetInfoResponse, keysets?: MintKeyset[], keys?: Record<string, MintKeys>[], events?: Nip60TokenEvent[], mintQuotes?: Record<string, MintQuoteResponse>, meltQuotes?: Record<string, MeltQuoteResponse> }[];
   proofs: ProofWithEventId[];
   privkey?: string;
+  activeMintUrl?: string;
 
   addMint: (url: string) => void;
   setMintInfo: (url: string, mintInfo: GetInfoResponse) => void;
@@ -38,6 +39,7 @@ interface CashuStore {
   updateMeltQuote: (mintUrl: string, quoteId: string, quote: MeltQuoteResponse) => void;
   getMintQuote: (mintUrl: string, quoteId: string) => MintQuoteResponse;
   getMeltQuote: (mintUrl: string, quoteId: string) => MeltQuoteResponse;
+  setActiveMintUrl: (url: string) => void;
 }
 
 // Usage:
@@ -51,11 +53,16 @@ export const useCashuStore = create<CashuStore>()(
       mints: [],
       proofs: [],
       isLoading: false,
+      activeMintUrl: undefined,
 
       addMint(url) {
         const existingMints = get().mints.map((mint) => mint.url)
         if (!existingMints.includes(url)) {
           set({ mints: [...get().mints, { url }] })
+          // Set as active if it's the first mint
+          if (get().mints.length === 0) {
+            set({ activeMintUrl: url })
+          }
         }
       },
 
@@ -161,6 +168,10 @@ export const useCashuStore = create<CashuStore>()(
           throw new Error('No melt quote found for mint');
         }
         return quote;
+      },
+
+      setActiveMintUrl(url: string) {
+        set({ activeMintUrl: url });
       },
     }),
     { name: 'cashu' },

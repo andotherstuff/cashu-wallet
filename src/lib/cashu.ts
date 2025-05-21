@@ -51,7 +51,6 @@ export function calculateBalance(proofs: Proof[]): Record<string, number> {
       // select all proofs with id == keyset.id
       const proofsForKeyset = proofs.filter((proof) => proof.id === keyset.id);
       if (proofsForKeyset.length) {
-        console.log(`adding ${proofsForKeyset.reduce((acc, proof) => acc + proof.amount, 0)} to ${mint.url}`);
         balances[mint.url] += proofsForKeyset.reduce((acc, proof) => acc + proof.amount, 0);
       }
     }

@@ -13,13 +13,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useCashuWallet } from "@/hooks/useCashuWallet";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   AlertCircle,
   ArrowDownLeft,
   ArrowUpRight,
@@ -30,10 +23,12 @@ import {
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useCashuToken } from "@/hooks/useCashuToken";
 import QRCode from "react-qr-code";
+import { useCashuStore } from "@/stores/cashuStore";
 
 export function CashuTransactionCard() {
   const { user } = useCurrentUser();
   const { wallet } = useCashuWallet();
+  const cashuStore = useCashuStore();
   const {
     sendToken,
     receiveToken,
@@ -42,7 +37,6 @@ export function CashuTransactionCard() {
   } = useCashuToken();
 
   const [activeTab, setActiveTab] = useState("receive");
-  const [selectedMint, setSelectedMint] = useState<string>("");
   const [amount, setAmount] = useState("");
   const [token, setToken] = useState("");
   const [generatedToken, setGeneratedToken] = useState("");
@@ -50,14 +44,11 @@ export function CashuTransactionCard() {
   const [success, setSuccess] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
 
-  // Set the first mint as default when wallet loads
-  if (wallet && wallet.mints && wallet.mints.length > 0 && !selectedMint) {
-    setSelectedMint(wallet.mints[0]);
-  }
-
   const handlesendToken = async () => {
-    if (!selectedMint) {
-      setError("Please select a mint");
+    if (!cashuStore.activeMintUrl) {
+      setError(
+        "No active mint selected. Please select a mint in your wallet settings."
+      );
       return;
     }
 
@@ -72,7 +63,7 @@ export function CashuTransactionCard() {
       setGeneratedToken("");
 
       const amountValue = parseInt(amount);
-      const token = await sendToken(selectedMint, amountValue);
+      const token = await sendToken(cashuStore.activeMintUrl, amountValue);
 
       setGeneratedToken(token);
       setSuccess(`Token generated for ${amountValue} sats`);
@@ -151,23 +142,6 @@ export function CashuTransactionCard() {
             {!generatedToken ? (
               <>
                 <div className="space-y-2">
-                  <Label htmlFor="mint">Mint</Label>
-                  <Select value={selectedMint} onValueChange={setSelectedMint}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a mint" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {wallet.mints &&
-                        wallet.mints.map((mint) => (
-                          <SelectItem key={mint} value={mint}>
-                            {mint}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
                   <Label htmlFor="amount">Amount (sats)</Label>
                   <Input
                     id="amount"
@@ -181,7 +155,9 @@ export function CashuTransactionCard() {
                 <Button
                   className="w-full"
                   onClick={handlesendToken}
-                  disabled={!selectedMint || !amount || !user || isLoading}
+                  disabled={
+                    !cashuStore.activeMintUrl || !amount || !user || isLoading
+                  }
                 >
                   {isLoading ? "Generating..." : "Generate Token"}
                 </Button>
@@ -230,11 +206,10 @@ export function CashuTransactionCard() {
 
           <TabsContent value="receive" className="space-y-4 mt-4">
             <div className="space-y-2">
-              <Label htmlFor="token">Token</Label>
               <div className="relative">
                 <Input
                   id="token"
-                  placeholder="Paste Cashu token here"
+                  placeholder="Cashu token"
                   value={token}
                   onChange={(e) => setToken(e.target.value)}
                 />
