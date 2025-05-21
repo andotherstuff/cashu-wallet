@@ -64,11 +64,29 @@ export async function mintTokensFromPaidInvoice(mintUrl: string, quoteId: string
     // Load mint keysets
     await wallet.loadMint();
 
-    // Check the status of the quote
-    const mintQuoteChecked = await wallet.checkMintQuote(quoteId);
+    let attempts = 0;
+    const maxAttempts = 40; // 2 minutes at 3 seconds each
+    let mintQuoteChecked;
 
-    if (mintQuoteChecked.state !== MintQuoteState.PAID) {
-      throw new Error('Lightning invoice has not been paid yet');
+    while (attempts < maxAttempts) {
+      try {
+        // Check the status of the quote
+        mintQuoteChecked = await wallet.checkMintQuote(quoteId);
+
+        if (mintQuoteChecked.state === MintQuoteState.PAID) {
+          break; // Exit the loop if the invoice is paid
+        } else {
+          throw new Error('Lightning invoice has not been paid yet');
+        }
+      } catch (error) {
+        console.error('Error checking mint quote:', error);
+        attempts++;
+        await new Promise(resolve => setTimeout(resolve, 3000)); // Wait for 3 seconds before retrying
+      }
+    }
+
+    if (attempts === maxAttempts) {
+      throw new Error('Failed to confirm payment after multiple attempts');
     }
 
     // Mint proofs using the paid quote

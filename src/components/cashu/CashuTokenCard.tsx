@@ -264,7 +264,7 @@ export function CashuTokenCard() {
         )}
 
         {/* Recent Transactions section */}
-        {recentTransactions.length > 0 && (
+        {/* {recentTransactions.length > 0 && (
           <div className="mt-6 pt-4 border-t">
             <div className="flex items-center mb-3">
               <Clock className="h-4 w-4 mr-2" />
@@ -306,7 +306,7 @@ export function CashuTokenCard() {
               ))}
             </div>
           </div>
-        )}
+        )} */}
       </CardContent>
     </Card>
   );
