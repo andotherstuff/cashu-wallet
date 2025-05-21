@@ -39,12 +39,20 @@ export function useCashuWallet() {
         }
 
         const decrypted = await user.signer.nip44.decrypt(user.pubkey, event.content);
-        const walletData = JSON.parse(decrypted) as CashuWalletStruct;
+        const data = JSON.parse(decrypted) as string[][];
 
-        // Ensure wallet has required properties
-        if (!walletData.mints) {
-          walletData.mints = [];
+        const privkey = data.find(([key]) => key === 'privkey')?.[1];
+
+        if (!privkey) {
+          throw new Error('Private key not found in wallet data');
         }
+
+        const walletData: CashuWalletStruct = {
+          privkey,
+          mints: data
+            .filter(([key]) => key === 'mint')
+            .map(([, mint]) => mint)
+        };
 
         for (const mint of walletData.mints) {
           const { mintInfo, keysets } = await activateMint(mint);
