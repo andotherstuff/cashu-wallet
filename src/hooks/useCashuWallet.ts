@@ -8,6 +8,7 @@ import { Proof } from '@cashu/cashu-ts';
 import { getLastEventTimestamp } from '@/lib/nostrTimestamps';
 import { NSchema as n } from '@nostrify/nostrify';
 import { z } from 'zod';
+import { useNutzaps } from '@/hooks/useNutzaps';
 
 /**
  * Hook to fetch and manage the user's Cashu wallet
@@ -17,6 +18,7 @@ export function useCashuWallet() {
   const { user } = useCurrentUser();
   const queryClient = useQueryClient();
   const cashuStore = useCashuStore();
+  const { createNutzapInfo } = useNutzaps();
 
   // Fetch wallet information (kind 17375)
   const walletQuery = useQuery({
@@ -111,12 +113,28 @@ export function useCashuWallet() {
 
       // Publish event
       await nostr.event(event);
+
+      // Also create or update the nutzap informational event
+      try {
+        await createNutzapInfo({
+          mintOverrides: walletData.mints.map(mint => ({
+            url: mint,
+            units: ['sat']
+          })),
+          p2pkPubkey: walletData.privkey
+        });
+      } catch (error) {
+        console.error('Failed to create nutzap informational event:', error);
+        // Continue even if nutzap info creation fails
+      }
+
       await new Promise(resolve => setTimeout(resolve, 1000)); // Wait for event to be published
 
       return event;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cashu', 'wallet', user?.pubkey] });
+      queryClient.invalidateQueries({ queryKey: ['nutzap', 'info', user?.pubkey] });
     }
   });
 
