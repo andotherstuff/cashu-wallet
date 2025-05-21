@@ -5,6 +5,7 @@ import { useCashuHistory } from '@/hooks/useCashuHistory';
 import { CashuMint, CashuWallet, Proof, getEncodedTokenV4, getDecodedToken, CheckStateEnum } from '@cashu/cashu-ts';
 import { CashuProof, CashuToken } from '@/lib/cashu';
 import { hashToCurve } from "@cashu/crypto/modules/common";
+import { useNutzapStore } from '@/stores/nutzapStore';
 
 export function useCashuToken() {
   const [isLoading, setIsLoading] = useState(false);
@@ -12,14 +13,16 @@ export function useCashuToken() {
   const cashuStore = useCashuStore();
   const { updateProofs } = useCashuWallet();
   const { createHistory } = useCashuHistory();
+  const nutzapStore = useNutzapStore();
 
   /**
    * Generate a send token
    * @param mintUrl The URL of the mint to use
    * @param amount Amount to send in satoshis
-   * @returns The encoded token string
+   * @param forNutzap Whether this token is for a NIP-61 nutzap
+   * @returns The encoded token string for regular tokens, or Proof[] for nutzap tokens
    */
-  const sendToken = async (mintUrl: string, amount: number): Promise<string> => {
+  const sendToken = async (mintUrl: string, amount: number, forNutzap?: boolean): Promise<string | Proof[]> => {
     setIsLoading(true);
     setError(null);
 
@@ -33,42 +36,75 @@ export function useCashuToken() {
       // Get all proofs from store
       const proofs = await cashuStore.getMintProofs(mintUrl);
 
-      // Perform coin selection
-      const { keep: proofsToKeep, send: proofsToSend } = await wallet.send(amount, proofs);
+      if (forNutzap) {
+        // For nutzap, we need to get the proofs but not create a token string
+        // Instead, we'll create P2PK-locked proofs for the recipient later
+        const { keep: proofsToKeep, send: proofsToSend } = await wallet.send(amount, proofs);
 
-      // Create token string
-      const token = getEncodedTokenV4({
-        mint: mintUrl,
-        proofs: proofsToSend.map(p => ({
-          id: p.id || '',
-          amount: p.amount,
-          secret: p.secret || '',
-          C: p.C || ''
-        }))
-      });
-      // Create new token for the proofs we're keeping
-      if (proofsToKeep.length > 0) {
-        const keepTokenData: CashuToken = {
+        // Create new token for the proofs we're keeping
+        if (proofsToKeep.length > 0) {
+          const keepTokenData: CashuToken = {
+            mint: mintUrl,
+            proofs: proofsToKeep.map(p => ({
+              id: p.id || '',
+              amount: p.amount,
+              secret: p.secret || '',
+              C: p.C || ''
+            }))
+          };
+
+          // update proofs
+          await updateProofs({ mintUrl, proofsToAdd: keepTokenData.proofs, proofsToRemove: [...proofsToSend, ...proofs] });
+        }
+
+        // Create history event
+        await createHistory({
+          direction: 'out',
+          amount: amount.toString(),
+        });
+
+        // Return the proofs to send
+        return proofsToSend;
+      } else {
+        // For regular token, create a token string
+        // Perform coin selection
+        const { keep: proofsToKeep, send: proofsToSend } = await wallet.send(amount, proofs);
+
+        // Create token string
+        const token = getEncodedTokenV4({
           mint: mintUrl,
-          proofs: proofsToKeep.map(p => ({
+          proofs: proofsToSend.map(p => ({
             id: p.id || '',
             amount: p.amount,
             secret: p.secret || '',
             C: p.C || ''
           }))
-        };
+        });
 
-        // update proofs
-        await updateProofs({ mintUrl, proofsToAdd: keepTokenData.proofs, proofsToRemove: [...proofsToSend, ...proofs] });
+        // Create new token for the proofs we're keeping
+        if (proofsToKeep.length > 0) {
+          const keepTokenData: CashuToken = {
+            mint: mintUrl,
+            proofs: proofsToKeep.map(p => ({
+              id: p.id || '',
+              amount: p.amount,
+              secret: p.secret || '',
+              C: p.C || ''
+            }))
+          };
+
+          // update proofs
+          await updateProofs({ mintUrl, proofsToAdd: keepTokenData.proofs, proofsToRemove: [...proofsToSend, ...proofs] });
+        }
+
+        // Create history event
+        await createHistory({
+          direction: 'out',
+          amount: amount.toString(),
+        });
+
+        return token;
       }
-
-      // Create history event
-      await createHistory({
-        direction: 'out',
-        amount: amount.toString(),
-      });
-
-      return token;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       setError(`Failed to generate token: ${message}`);
