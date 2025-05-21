@@ -6,6 +6,8 @@ import { nip44, NostrEvent } from 'nostr-tools';
 import { useCashuStore, Nip60TokenEvent } from '@/stores/cashuStore';
 import { Proof } from '@cashu/cashu-ts';
 import { getLastEventTimestamp } from '@/lib/nostrTimestamps';
+import { NSchema as n } from '@nostrify/nostrify';
+import { z } from 'zod';
 
 /**
  * Hook to fetch and manage the user's Cashu wallet
@@ -39,7 +41,7 @@ export function useCashuWallet() {
         }
 
         const decrypted = await user.signer.nip44.decrypt(user.pubkey, event.content);
-        const data = JSON.parse(decrypted) as string[][];
+        const data = n.json().pipe(z.string().array().array()).parse(decrypted);
 
         const privkey = data.find(([key]) => key === 'privkey')?.[1];
 
