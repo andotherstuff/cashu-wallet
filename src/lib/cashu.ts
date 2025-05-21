@@ -77,12 +77,31 @@ export async function activateMint(mintUrl: string): Promise<{ mintInfo: GetInfo
   return { mintInfo, keysets };
 }
 
-export async function updateMintKeys(mintUrl: string): Promise<{ keys: Record<string, MintKeys>[] }> {
+export async function updateMintKeys(mintUrl: string, keysets: MintKeyset[]): Promise<{ keys: Record<string, MintKeys>[] }> {
   const mint = new CashuMint(mintUrl);
   const wallet = new CashuWallet(mint);
-  const keysets = await wallet.getKeySets();
-  const keys = await Promise.all(keysets.map(async (keyset) => {
-    return { [keyset.id]: await wallet.getKeys(keyset.id) };
-  }));
-  return { keys };
+
+  // get keysets from store
+  const keysetsLocal = useCashuStore.getState().mints.find((m) => m.url === mintUrl)?.keysets;
+  const keysLocal = useCashuStore.getState().mints.find((m) => m.url === mintUrl)?.keys || [];
+
+  if (!keysetsLocal || !keysLocal.length) {
+    // If no local keysets or keys, fetch all keys
+    const keys = await Promise.all(keysets.map(async (keyset) => {
+      return { [keyset.id]: await wallet.getKeys(keyset.id) };
+    }));
+    return { keys };
+  } else {
+    // Only fetch keys for keysets that don't exist locally
+    const newKeysets = keysets.filter(keyset => !keysetsLocal.includes(keyset));
+
+    if (newKeysets.length > 0) {
+      const newKeys = await Promise.all(newKeysets.map(async (keyset) => {
+        return { [keyset.id]: await wallet.getKeys(keyset.id) };
+      }));
+      return { keys: keysLocal.concat(newKeys) };
+    }
+
+    return { keys: keysLocal };
+  }
 }
