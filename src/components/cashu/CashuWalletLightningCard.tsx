@@ -33,6 +33,7 @@ import { MeltQuoteResponse, MintQuoteResponse, Proof } from "@cashu/cashu-ts";
 import { CashuToken } from "@/lib/cashu";
 import { NostrEvent } from "nostr-tools";
 import QRCode from "react-qr-code";
+import { set } from "date-fns";
 
 interface TokenEvent {
   id: string;
@@ -59,6 +60,9 @@ export function CashuWalletLightningCard() {
   const [paymentRequest, setPaymentRequest] = useState("");
   const [sendInvoice, setSendInvoice] = useState("");
   const [invoiceAmount, setInvoiceAmount] = useState<number | null>(null);
+  const [invoiceFeeReserve, setInvoiceFeeReserve] = useState<number | null>(
+    null
+  );
   const [mintQuote, setMintQuote] = useState<MintQuoteResponse | null>(null);
   const [meltQuote, setMeltQuote] = useState<MeltQuoteResponse | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -199,6 +203,7 @@ export function CashuWalletLightningCard() {
 
     // Parse amount from invoice
     setInvoiceAmount(meltQuote.amount);
+    setInvoiceFeeReserve(meltQuote.fee_reserve);
   };
 
   // Start QR scanner
@@ -446,7 +451,16 @@ export function CashuWalletLightningCard() {
             {invoiceAmount && (
               <div className="rounded-md border p-4">
                 <p className="text-sm font-medium">Invoice Amount</p>
-                <p className="text-2xl font-bold">{invoiceAmount} sats</p>
+                <p className="text-2xl font-bold">
+                  {invoiceAmount} sats
+                  {invoiceFeeReserve && (
+                    <>
+                      <span className="text-xs font-bold pl-2 text-muted-foreground">
+                        + max {invoiceFeeReserve} sats fee
+                      </span>
+                    </>
+                  )}
+                </p>
               </div>
             )}
 
@@ -457,6 +471,7 @@ export function CashuWalletLightningCard() {
                 onClick={() => {
                   setSendInvoice("");
                   setInvoiceAmount(null);
+                  setInvoiceFeeReserve(null);
                 }}
               >
                 Cancel
