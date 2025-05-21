@@ -173,8 +173,10 @@ export function NutzapCard() {
         `Successfully redeemed ${proofs.reduce(
           (sum, p) => sum + p.amount,
           0
-        )} sats from ${nutzap.pubkey.slice(0, 8)}`
+        )} sats`
       );
+      // set redeemed to true
+      nutzap.redeemed = true;
     } catch (error) {
       console.error("Error redeeming nutzap:", error);
       setError(error instanceof Error ? error.message : String(error));

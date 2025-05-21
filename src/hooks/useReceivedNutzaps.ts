@@ -68,7 +68,7 @@ export function useReceivedNutzaps() {
 
       // Add since filter if we have a last redemption timestamp
       if (lastRedemptionTimestamp) {
-        Object.assign(filter, { since: lastRedemptionTimestamp + 1 });
+        Object.assign(filter, { since: lastRedemptionTimestamp });
       }
 
       const events = await nostr.query([filter], { signal });
