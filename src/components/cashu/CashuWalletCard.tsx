@@ -1,5 +1,5 @@
 import { bytesToHex } from "@noble/hashes/utils";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -32,6 +32,18 @@ export function CashuWalletCard() {
 
   // Calculate total balance across all mints
   const balances = calculateBalance(cashuStore.proofs);
+
+  // Use useEffect to set active mint when wallet changes
+  useEffect(() => {
+    if (
+      wallet &&
+      wallet.mints &&
+      wallet.mints.length > 0 &&
+      !cashuStore.activeMintUrl
+    ) {
+      cashuStore.setActiveMintUrl(wallet.mints[0]);
+    }
+  }, [wallet, cashuStore]);
 
   const handleCreateWallet = () => {
     if (!user) {
@@ -115,16 +127,6 @@ export function CashuWalletCard() {
   const cleanMintUrl = (mintUrl: string) => {
     return mintUrl.replace("https://", "");
   };
-
-  // Ensure we have an active mint when wallet is loaded
-  if (
-    wallet &&
-    wallet.mints &&
-    wallet.mints.length > 0 &&
-    !cashuStore.activeMintUrl
-  ) {
-    cashuStore.setActiveMintUrl(wallet.mints[0]);
-  }
 
   if (isLoading) {
     return (
