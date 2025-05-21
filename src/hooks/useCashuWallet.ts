@@ -105,7 +105,7 @@ export function useCashuWallet() {
       const event = await user.signer.signEvent({
         kind: CASHU_EVENT_KINDS.WALLET,
         content,
-        tags,
+        tags: [],
         created_at: Math.floor(Date.now() / 1000)
       });
 
