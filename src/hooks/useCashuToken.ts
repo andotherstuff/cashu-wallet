@@ -11,7 +11,8 @@ export function useCashuToken() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const cashuStore = useCashuStore();
-  const { updateProofs } = useCashuWallet();
+  const { wallet, createWallet, updateProofs } = useCashuWallet();
+
   const { createHistory } = useCashuHistory();
   const nutzapStore = useNutzapStore();
 
@@ -114,6 +115,19 @@ export function useCashuToken() {
     }
   };
 
+  const addMintIfNotExists = async (mintUrl: string) => {
+    // Validate URL
+    new URL(mintUrl);
+    if (!wallet) {
+      throw new Error('Wallet not found');
+    }
+    // Add mint to wallet
+    createWallet({
+      ...wallet,
+      mints: [...wallet.mints, mintUrl],
+    });
+  }
+
   /**
    * Receive a token
    * @param token The encoded token string
@@ -131,6 +145,9 @@ export function useCashuToken() {
       }
 
       const { mint: mintUrl, proofs: tokenProofs } = decodedToken;
+
+      // if we don't have the mintUrl yet, add it
+      await addMintIfNotExists(mintUrl);
 
       // Setup wallet for receiving
       const mint = new CashuMint(mintUrl);
