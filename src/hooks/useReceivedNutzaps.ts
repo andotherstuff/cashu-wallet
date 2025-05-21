@@ -62,14 +62,14 @@ export function useReceivedNutzaps() {
       const filter = {
         kinds: [CASHU_EVENT_KINDS.ZAP],
         '#p': [user.pubkey], // Events that p-tag the user
-        // '#u': trustedMints, // Events that u-tag one of the trusted mints
+        '#u': trustedMints, // Events that u-tag one of the trusted mints
         limit: 50
       };
 
       // Add since filter if we have a last redemption timestamp
-      // if (lastRedemptionTimestamp) {
-      //   Object.assign(filter, { since: lastRedemptionTimestamp - 1 });
-      // }
+      if (lastRedemptionTimestamp) {
+        Object.assign(filter, { since: lastRedemptionTimestamp + 1 });
+      }
 
       const events = await nostr.query([filter], { signal });
 
@@ -104,7 +104,7 @@ export function useReceivedNutzaps() {
           const mintUrl = mintTag[1];
 
           // Verify the mint is in the trusted list
-          // if (!trustedMints.includes(mintUrl)) continue;
+          if (!trustedMints.includes(mintUrl)) continue;
 
           // Get proofs
           const proofTags = event.tags.filter(tag => tag[0] === 'proof');
