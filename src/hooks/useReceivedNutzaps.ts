@@ -63,13 +63,13 @@ export function useReceivedNutzaps() {
         kinds: [CASHU_EVENT_KINDS.ZAP],
         '#p': [user.pubkey], // Events that p-tag the user
         // '#u': trustedMints, // Events that u-tag one of the trusted mints
-        limit: 500
+        limit: 50
       };
 
       // Add since filter if we have a last redemption timestamp
-      if (lastRedemptionTimestamp) {
-        Object.assign(filter, { since: lastRedemptionTimestamp + 1 });
-      }
+      // if (lastRedemptionTimestamp) {
+      //   Object.assign(filter, { since: lastRedemptionTimestamp - 1 });
+      // }
 
       const events = await nostr.query([filter], { signal });
 

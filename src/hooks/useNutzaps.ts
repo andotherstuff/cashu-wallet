@@ -139,6 +139,8 @@ export function useNutzaps() {
       // Store in nutzapStore
       nutzapStore.setNutzapInfo(user.pubkey, nutzapInfo);
 
+      console.log('Nutzap info created', nutzapInfo);
+
       return event;
     },
     onSuccess: () => {

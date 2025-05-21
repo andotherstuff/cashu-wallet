@@ -17,6 +17,7 @@ import {
   ArrowDownLeft,
   ArrowUpRight,
   Check,
+  Copy,
   Zap,
 } from "lucide-react";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -27,6 +28,7 @@ import { useSendNutzap } from "@/hooks/useSendNutzap";
 import { useNutzapRedemption } from "@/hooks/useNutzapRedemption";
 import { nip19 } from "nostr-tools";
 import { Proof } from "@cashu/cashu-ts";
+import { useNutzapInfo } from "@/hooks/useNutzaps";
 
 export function NutzapCard() {
   const { user } = useCurrentUser();
@@ -48,6 +50,21 @@ export function NutzapCard() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [redeemingNutzap, setRedeemingNutzap] = useState<string | null>(null);
+  const [copying, setCopying] = useState(false);
+
+  // Get user's npub
+  const userNpub = user ? nip19.npubEncode(user.pubkey) : "";
+
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopying(true);
+      setTimeout(() => setCopying(false), 2000);
+      setSuccess("Copied to clipboard!");
+    } catch (err) {
+      setError("Failed to copy to clipboard");
+    }
+  };
 
   const handleSendNutzap = async () => {
     if (!cashuStore.activeMintUrl) {
@@ -96,7 +113,7 @@ export function NutzapCard() {
 
       // Send nutzap
       await sendNutzap({
-        recipientPubkey: "02" + recipientPubkey,
+        recipientPubkey: recipientPubkey,
         comment,
         proofs,
         mintUrl: cashuStore.activeMintUrl,
@@ -241,6 +258,28 @@ export function NutzapCard() {
           </TabsContent>
 
           <TabsContent value="receive" className="space-y-4 mt-4">
+            {user && (
+              <div className="border rounded-md p-3 mb-4">
+                <Label className="text-sm text-muted-foreground mb-1 block">
+                  Your Nostr ID (npub)
+                </Label>
+                <div className="flex items-center">
+                  <div className="text-sm font-mono truncate flex-1 bg-muted p-2 rounded-l-md">
+                    {userNpub}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="rounded-l-none"
+                    onClick={() => copyToClipboard(userNpub)}
+                    disabled={copying}
+                  >
+                    {copying ? "Copied!" : <Copy className="h-4 w-4" />}
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {isLoadingNutzaps ? (
               <div className="text-center py-4">Loading incoming zaps...</div>
             ) : receivedNutzaps && receivedNutzaps.length > 0 ? (
