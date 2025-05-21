@@ -232,10 +232,11 @@ export function CashuTokenCard() {
 
           <TabsContent value="receive" className="space-y-4 mt-4">
             <div className="space-y-2">
+              <Label htmlFor="token">Token</Label>
               <div className="relative">
                 <Input
                   id="token"
-                  placeholder="Cashu token"
+                  placeholder="cashuB..."
                   value={token}
                   onChange={(e) => setToken(e.target.value)}
                 />

@@ -436,6 +436,7 @@ export function CashuWalletLightningCard() {
 
           <TabsContent value="send" className="space-y-4">
             <div className="space-y-2">
+              <Label htmlFor="amount">Invoice</Label>
               <div className="relative">
                 <Input
                   id="invoice"
