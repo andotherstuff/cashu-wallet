@@ -16,16 +16,25 @@ import { Separator } from "@/components/ui/separator";
 import { useCashuWallet } from "@/hooks/useCashuWallet";
 import { calculateBalance, formatBalance } from "@/lib/cashu";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { AlertCircle, ChevronDown, ChevronUp, Plus, Trash } from "lucide-react";
+import {
+  AlertCircle,
+  ChevronDown,
+  ChevronUp,
+  Plus,
+  Trash,
+  Eraser,
+} from "lucide-react";
 import { useCashuStore } from "@/stores/cashuStore";
 import { generateSecretKey } from "nostr-tools";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { useCashuToken } from "@/hooks/useCashuToken";
 
 export function CashuWalletCard() {
   const { user } = useCurrentUser();
   const { wallet, isLoading, createWallet } = useCashuWallet();
   const cashuStore = useCashuStore();
+  const { cleanSpentProofs } = useCashuToken();
   const [newMint, setNewMint] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [expandedMint, setExpandedMint] = useState<string | null>(null);
@@ -109,6 +118,13 @@ export function CashuWalletCard() {
     if (expandedMint === mintUrl) {
       setExpandedMint(null);
     }
+  };
+
+  const handleCleanSpentProofs = async () => {
+    if (!wallet || !wallet.mints) return;
+    if (!cashuStore.activeMintUrl) return;
+    const spentProofs = await cleanSpentProofs(cashuStore.activeMintUrl);
+    console.log(spentProofs);
   };
 
   // Set active mint when clicking on a mint
@@ -218,13 +234,24 @@ export function CashuWalletCard() {
                         </div>
                       </div>
                       {isExpanded && (
-                        <div className="pl-4 flex justify-end pt-1">
+                        <div className="pl-4 flex justify-end gap-2 pt-1">
                           <Button
-                            variant="destructive"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleCleanSpentProofs()}
+                            className="border-muted-foreground/20 hover:bg-muted"
+                          >
+                            <Eraser className="h-4 w-4 mr-1 text-amber-500" />
+                            Clean Spent
+                          </Button>
+                          <Button
+                            variant="outline"
                             size="sm"
                             onClick={() => handleRemoveMint(mint)}
+                            className="border-muted-foreground/20 hover:bg-destructive/10"
                           >
-                            <Trash className="h-4 w-4 mr-1" /> Remove Mint
+                            <Trash className="h-4 w-4 mr-1 text-destructive" />
+                            Remove
                           </Button>
                         </div>
                       )}

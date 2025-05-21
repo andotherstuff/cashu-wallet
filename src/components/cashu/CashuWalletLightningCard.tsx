@@ -246,7 +246,7 @@ export function CashuWalletLightningCard() {
       const mintUrl = cashuStore.activeMintUrl;
 
       // Select proofs to spend
-      const selectedProofs = [...cashuStore.proofs];
+      const selectedProofs = await cashuStore.getMintProofs(mintUrl);
       const totalProofsAmount = selectedProofs.reduce(
         (sum, p) => sum + p.amount,
         0

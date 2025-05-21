@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@cashu/cashu-ts": "^2.5.2",
+    "@cashu/crypto": "^0.3.4",
     "@hookform/resolvers": "^3.9.0",
     "@noble/hashes": "^1.8.0",
     "@nostrify/nostrify": "npm:@jsr/nostrify__nostrify@^0.46.1",

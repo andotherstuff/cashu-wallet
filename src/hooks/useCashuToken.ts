@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { useCashuStore } from '@/stores/cashuStore';
 import { useCashuWallet } from '@/hooks/useCashuWallet';
 import { useCashuHistory } from '@/hooks/useCashuHistory';
-import { CashuMint, CashuWallet, Proof, getEncodedTokenV4, getDecodedToken } from '@cashu/cashu-ts';
+import { CashuMint, CashuWallet, Proof, getEncodedTokenV4, getDecodedToken, CheckStateEnum } from '@cashu/cashu-ts';
 import { CashuProof, CashuToken } from '@/lib/cashu';
+import { hashToCurve } from "@cashu/crypto/modules/common";
 
 export function useCashuToken() {
   const [isLoading, setIsLoading] = useState(false);
@@ -139,9 +140,37 @@ export function useCashuToken() {
     }
   };
 
+  const cleanSpentProofs = async (mintUrl: string) => {
+    setIsLoading(true);
+    setError(null);
+
+    const mint = new CashuMint(mintUrl);
+    const wallet = new CashuWallet(mint);
+
+    await wallet.loadMint();
+
+    const proofs = await cashuStore.getMintProofs(mintUrl);
+
+    const proofStates = await wallet.checkProofsStates(proofs);
+    const spentProofsStates = proofStates.filter(
+      (p) => p.state == CheckStateEnum.SPENT
+    );
+    const enc = new TextEncoder();
+    const spentProofs = proofs.filter((p) =>
+      spentProofsStates.find(
+        (s) => s.Y == hashToCurve(enc.encode(p.secret)).toHex(true)
+      )
+    );
+
+    await updateProofs({ mintUrl, proofsToAdd: [], proofsToRemove: spentProofs });
+
+    return spentProofs;
+  }
+
   return {
     sendToken,
     receiveToken,
+    cleanSpentProofs,
     isLoading,
     error
   };
