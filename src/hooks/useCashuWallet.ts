@@ -90,17 +90,22 @@ export function useCashuWallet() {
         throw new Error('NIP-44 encryption not supported by your signer');
       }
 
+      const tags = [
+        ['privkey', walletData.privkey],
+        ...walletData.mints.map(mint => ['mint', mint])
+      ]
+
       // Encrypt wallet data
       const content = await user.signer.nip44.encrypt(
         user.pubkey,
-        JSON.stringify(walletData)
+        JSON.stringify(tags)
       );
 
       // Create wallet event
       const event = await user.signer.signEvent({
         kind: CASHU_EVENT_KINDS.WALLET,
         content,
-        tags: walletData.mints.map(mint => ['mint', mint]),
+        tags,
         created_at: Math.floor(Date.now() / 1000)
       });
 
