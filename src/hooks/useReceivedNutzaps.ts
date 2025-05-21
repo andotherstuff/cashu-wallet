@@ -1,9 +1,11 @@
 import { useNostr } from '@/hooks/useNostr';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { CASHU_EVENT_KINDS } from '@/lib/cashu';
 import { useNutzapInfo } from '@/hooks/useNutzaps';
 import { getLastEventTimestamp } from '@/lib/nostrTimestamps';
+import { useCashuWallet } from '@/hooks/useCashuWallet';
+import { useNutzapRedemption } from '@/hooks/useNutzapRedemption';
 
 export interface ReceivedNutzap {
   id: string;
@@ -19,6 +21,58 @@ export interface ReceivedNutzap {
   mintUrl: string;
   zappedEvent?: string; // Event ID being zapped, if any
   redeemed: boolean; // Whether this nutzap has been redeemed
+}
+
+/**
+ * Hook to redeem nutzaps
+ */
+export function useRedeemNutzap() {
+  const { wallet, updateProofs } = useCashuWallet();
+  const { createRedemption } = useNutzapRedemption();
+  const queryClient = useQueryClient();
+  const { user } = useCurrentUser();
+
+  return useMutation({
+    mutationFn: async (nutzap: ReceivedNutzap) => {
+      if (nutzap.redeemed) {
+        return; // Already redeemed
+      }
+
+      // Receive the token proofs
+      const { proofs, mintUrl } = nutzap;
+
+      // Update proofs in the wallet
+      const tokenEvent = await updateProofs({
+        mintUrl,
+        proofsToAdd: proofs,
+        proofsToRemove: [],
+      });
+
+      if (!tokenEvent) {
+        throw new Error("Failed to add proofs to wallet");
+      }
+
+      // Record the redemption
+      await createRedemption({
+        nutzapEventIds: [nutzap.id],
+        direction: "in",
+        amount: proofs.reduce((sum, p) => sum + p.amount, 0).toString(),
+        createdTokenEventId: tokenEvent.id,
+      });
+
+      // Return the successful redemption
+      return {
+        nutzapId: nutzap.id,
+        amount: proofs.reduce((sum, p) => sum + p.amount, 0),
+      };
+    },
+    onSuccess: () => {
+      // Invalidate queries to refresh the nutzap list
+      if (user) {
+        queryClient.invalidateQueries({ queryKey: ['nutzap', 'received', user.pubkey] });
+      }
+    },
+  });
 }
 
 /**

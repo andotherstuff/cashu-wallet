@@ -23,9 +23,12 @@ import {
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useCashuStore } from "@/stores/cashuStore";
 import { useCashuToken } from "@/hooks/useCashuToken";
-import { useReceivedNutzaps, ReceivedNutzap } from "@/hooks/useReceivedNutzaps";
+import {
+  useReceivedNutzaps,
+  ReceivedNutzap,
+  useRedeemNutzap,
+} from "@/hooks/useReceivedNutzaps";
 import { useSendNutzap, useFetchNutzapInfo } from "@/hooks/useSendNutzap";
-import { useNutzapRedemption } from "@/hooks/useNutzapRedemption";
 import { nip19 } from "nostr-tools";
 import { Proof } from "@cashu/cashu-ts";
 import { useNutzapInfo } from "@/hooks/useNutzaps";
@@ -35,26 +38,29 @@ import { CASHU_EVENT_KINDS } from "@/lib/cashu";
 export function NutzapCard() {
   const { user } = useCurrentUser();
   const { nostr } = useNostr();
-  const { wallet, updateProofs } = useCashuWallet();
+  const { wallet } = useCashuWallet();
   const cashuStore = useCashuStore();
   const { sendToken } = useCashuToken();
   const { sendNutzap, isSending, error: sendError } = useSendNutzap();
   const { fetchNutzapInfo, isFetching } = useFetchNutzapInfo();
-  const { createRedemption, isCreatingRedemption } = useNutzapRedemption();
   const {
     data: fetchedNutzaps,
     isLoading: isLoadingNutzaps,
     refetch: refetchNutzaps,
   } = useReceivedNutzaps();
+  const { mutateAsync: redeemNutzap, isPending: isRedeemingNutzap } =
+    useRedeemNutzap();
   const nutzapInfoQuery = useNutzapInfo(user?.pubkey);
 
-  const [activeTab, setActiveTab] = useState("send");
+  const [activeTab, setActiveTab] = useState("receive");
   const [recipientNpub, setRecipientNpub] = useState("");
   const [amount, setAmount] = useState("");
   const [comment, setComment] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [redeemingNutzap, setRedeemingNutzap] = useState<string | null>(null);
+  const [redeemingNutzapId, setRedeemingNutzapId] = useState<string | null>(
+    null
+  );
   const [copying, setCopying] = useState(false);
   const [receivedNutzaps, setReceivedNutzaps] = useState<ReceivedNutzap[]>([]);
 
@@ -150,13 +156,34 @@ export function NutzapCard() {
             // Add to received nutzaps, putting newest first
             setReceivedNutzaps((prev) => [nutzap, ...prev]);
 
-            // Optional: Show success notification for new nutzaps
-            setSuccess(
-              `New Zap received! ${proofs.reduce(
-                (sum, p) => sum + p.amount,
-                0
-              )} sats`
-            );
+            // Auto-redeem the new nutzap
+            try {
+              await redeemNutzap(nutzap);
+              // Update the UI state to show this nutzap as redeemed
+              setReceivedNutzaps((prev) =>
+                prev.map((n) =>
+                  n.id === nutzap.id ? { ...n, redeemed: true } : n
+                )
+              );
+
+              // Show success notification for redeemed nutzap
+              setSuccess(
+                `New Zap received and redeemed! ${proofs.reduce(
+                  (sum, p) => sum + p.amount,
+                  0
+                )} sats`
+              );
+            } catch (error) {
+              console.error("Failed to auto-redeem nutzap:", error);
+              // Just show the notification without auto-redemption
+              setSuccess(
+                `New Zap received! ${proofs.reduce(
+                  (sum, p) => sum + p.amount,
+                  0
+                )} sats`
+              );
+            }
+
             setTimeout(() => setSuccess(null), 3000);
           } catch (error) {
             console.error("Error processing nutzap event:", error);
@@ -183,7 +210,7 @@ export function NutzapCard() {
     return () => {
       controller.abort();
     };
-  }, [user, nutzapInfoQuery.data, fetchedNutzaps, nostr]);
+  }, [user, nutzapInfoQuery.data, fetchedNutzaps, nostr, redeemNutzap]);
 
   const copyToClipboard = async (text: string) => {
     try {
@@ -254,10 +281,11 @@ export function NutzapCard() {
         mintUrl: cashuStore.activeMintUrl,
       });
 
-      setSuccess(`Successfully sent ${amountValue} sats to ${recipientNpub}`);
+      setSuccess(`Successfully sent ${amountValue} sats`);
       setAmount("");
       setComment("");
       setRecipientNpub("");
+      setTimeout(() => setSuccess(null), 3000);
     } catch (error) {
       console.error("Error sending nutzap:", error);
       setError(error instanceof Error ? error.message : String(error));
@@ -270,30 +298,10 @@ export function NutzapCard() {
     }
 
     try {
-      setRedeemingNutzap(nutzap.id);
+      setRedeemingNutzapId(nutzap.id);
       setError(null);
 
-      // Receive the token proofs
-      const { proofs, mintUrl } = nutzap;
-
-      // Update proofs in the wallet
-      const tokenEvent = await updateProofs({
-        mintUrl,
-        proofsToAdd: proofs,
-        proofsToRemove: [],
-      });
-
-      if (!tokenEvent) {
-        throw new Error("Failed to add proofs to wallet");
-      }
-
-      // Record the redemption
-      await createRedemption({
-        nutzapEventIds: [nutzap.id],
-        direction: "in",
-        amount: proofs.reduce((sum, p) => sum + p.amount, 0).toString(),
-        createdTokenEventId: tokenEvent.id,
-      });
+      await redeemNutzap(nutzap);
 
       // Mark nutzap as redeemed in state
       setReceivedNutzaps((nutzaps) =>
@@ -301,7 +309,7 @@ export function NutzapCard() {
       );
 
       setSuccess(
-        `Successfully redeemed ${proofs.reduce(
+        `Successfully redeemed ${nutzap.proofs.reduce(
           (sum, p) => sum + p.amount,
           0
         )} sats`
@@ -310,7 +318,7 @@ export function NutzapCard() {
       console.error("Error redeeming nutzap:", error);
       setError(error instanceof Error ? error.message : String(error));
     } finally {
-      setRedeemingNutzap(null);
+      setRedeemingNutzapId(null);
     }
   };
 
@@ -336,13 +344,13 @@ export function NutzapCard() {
       <CardContent>
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="send">
-              <ArrowUpRight className="h-4 w-4 mr-2" />
-              Send
-            </TabsTrigger>
             <TabsTrigger value="receive">
               <ArrowDownLeft className="h-4 w-4 mr-2" />
               Receive
+            </TabsTrigger>
+            <TabsTrigger value="send">
+              <ArrowUpRight className="h-4 w-4 mr-2" />
+              Send
             </TabsTrigger>
           </TabsList>
 
@@ -455,11 +463,11 @@ export function NutzapCard() {
                             size="sm"
                             onClick={() => handleRedeemNutzap(nutzap)}
                             disabled={
-                              isCreatingRedemption ||
-                              redeemingNutzap === nutzap.id
+                              isRedeemingNutzap ||
+                              redeemingNutzapId === nutzap.id
                             }
                           >
-                            {redeemingNutzap === nutzap.id
+                            {redeemingNutzapId === nutzap.id
                               ? "Redeeming..."
                               : "Redeem"}
                           </Button>

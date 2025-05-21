@@ -18,7 +18,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle, Copy, QrCode, Zap } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowDownLeft,
+  ArrowUpRight,
+  Copy,
+  QrCode,
+  Zap,
+} from "lucide-react";
 import { useCashuWallet } from "@/hooks/useCashuWallet";
 import { useCashuStore } from "@/stores/cashuStore";
 import { useCashuHistory } from "@/hooks/useCashuHistory";
@@ -343,8 +350,14 @@ export function CashuWalletLightningCard() {
       <CardContent>
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="receive">Receive</TabsTrigger>
-            <TabsTrigger value="send">Send</TabsTrigger>
+            <TabsTrigger value="receive">
+              <ArrowDownLeft className="h-4 w-4 mr-2" />
+              Receive
+            </TabsTrigger>
+            <TabsTrigger value="send">
+              <ArrowUpRight className="h-4 w-4 mr-2" />
+              Send
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="receive" className="space-y-4">
