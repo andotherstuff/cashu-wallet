@@ -86,11 +86,9 @@ export async function updateMintKeys(mintUrl: string, keysets: MintKeyset[]): Pr
   let keysLocal = useCashuStore.getState().mints.find((m) => m.url === mintUrl)?.keys;
 
   if (!keysetsLocal || !keysLocal) {
-    const keys = await Promise.all(keysets.map(async (keyset) => {
-      const allKeys = await wallet.getAllKeys()
-      // return a map of all keys (and their "id" as key) 
-      return allKeys.map((key) => ({ [keyset.id]: key }));
-    }));
+    const allKeys = await wallet.getAllKeys()
+    const keys = allKeys.map((key) => ({ [key.id]: key }));
+    return { keys };
   } else if (keysetsLocal !== keysets) {
     // get all keys for each keyset where keysetLocal != keyset and add them to the keysLocal
     const keys = await Promise.all(keysets.map(async (keyset) => {
