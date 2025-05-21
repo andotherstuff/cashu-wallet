@@ -20,10 +20,10 @@ export function useCashuToken() {
    * Generate a send token
    * @param mintUrl The URL of the mint to use
    * @param amount Amount to send in satoshis
-   * @param forNutzap Whether this token is for a NIP-61 nutzap
+   * @param p2pkPubkey The P2PK pubkey to lock the proofs to
    * @returns The encoded token string for regular tokens, or Proof[] for nutzap tokens
    */
-  const sendToken = async (mintUrl: string, amount: number, forNutzap?: boolean): Promise<string | Proof[]> => {
+  const sendToken = async (mintUrl: string, amount: number, p2pkPubkey?: string): Promise<Proof[]> => {
     setIsLoading(true);
     setError(null);
 
@@ -37,75 +37,44 @@ export function useCashuToken() {
       // Get all proofs from store
       const proofs = await cashuStore.getMintProofs(mintUrl);
 
-      if (forNutzap) {
-        // For nutzap, we need to get the proofs but not create a token string
-        // Instead, we'll create P2PK-locked proofs for the recipient later
-        const { keep: proofsToKeep, send: proofsToSend } = await wallet.send(amount, proofs);
+      // For regular token, create a token string
+      // Perform coin selection
+      const { keep: proofsToKeep, send: proofsToSend } = await wallet.send(amount, proofs, { pubkey: p2pkPubkey });
 
-        // Create new token for the proofs we're keeping
-        if (proofsToKeep.length > 0) {
-          const keepTokenData: CashuToken = {
-            mint: mintUrl,
-            proofs: proofsToKeep.map(p => ({
-              id: p.id || '',
-              amount: p.amount,
-              secret: p.secret || '',
-              C: p.C || ''
-            }))
-          };
+      // Create token string
+      const token = getEncodedTokenV4({
+        mint: mintUrl,
+        proofs: proofsToSend.map(p => ({
+          id: p.id || '',
+          amount: p.amount,
+          secret: p.secret || '',
+          C: p.C || ''
+        }))
+      });
 
-          // update proofs
-          await updateProofs({ mintUrl, proofsToAdd: keepTokenData.proofs, proofsToRemove: [...proofsToSend, ...proofs] });
-        }
-
-        // Create history event
-        await createHistory({
-          direction: 'out',
-          amount: amount.toString(),
-        });
-
-        // Return the proofs to send
-        return proofsToSend;
-      } else {
-        // For regular token, create a token string
-        // Perform coin selection
-        const { keep: proofsToKeep, send: proofsToSend } = await wallet.send(amount, proofs);
-
-        // Create token string
-        const token = getEncodedTokenV4({
+      // Create new token for the proofs we're keeping
+      if (proofsToKeep.length > 0) {
+        const keepTokenData: CashuToken = {
           mint: mintUrl,
-          proofs: proofsToSend.map(p => ({
+          proofs: proofsToKeep.map(p => ({
             id: p.id || '',
             amount: p.amount,
             secret: p.secret || '',
             C: p.C || ''
           }))
-        });
+        };
 
-        // Create new token for the proofs we're keeping
-        if (proofsToKeep.length > 0) {
-          const keepTokenData: CashuToken = {
-            mint: mintUrl,
-            proofs: proofsToKeep.map(p => ({
-              id: p.id || '',
-              amount: p.amount,
-              secret: p.secret || '',
-              C: p.C || ''
-            }))
-          };
-
-          // update proofs
-          await updateProofs({ mintUrl, proofsToAdd: keepTokenData.proofs, proofsToRemove: [...proofsToSend, ...proofs] });
-        }
+        // update proofs
+        await updateProofs({ mintUrl, proofsToAdd: keepTokenData.proofs, proofsToRemove: [...proofsToSend, ...proofs] });
 
         // Create history event
         await createHistory({
           direction: 'out',
           amount: amount.toString(),
         });
-
-        return token;
       }
+      return proofsToSend;
+
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       setError(`Failed to generate token: ${message}`);
@@ -113,6 +82,7 @@ export function useCashuToken() {
     } finally {
       setIsLoading(false);
     }
+
   };
 
   const addMintIfNotExists = async (mintUrl: string) => {

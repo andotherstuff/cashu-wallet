@@ -91,12 +91,12 @@ export function NutzapCard() {
       const proofs = (await sendToken(
         cashuStore.activeMintUrl,
         amountValue,
-        true
+        recipientPubkey
       )) as Proof[];
 
       // Send nutzap
       await sendNutzap({
-        recipientPubkey,
+        recipientPubkey: "02" + recipientPubkey,
         comment,
         proofs,
         mintUrl: cashuStore.activeMintUrl,

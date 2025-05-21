@@ -28,6 +28,7 @@ import { useCashuStore } from "@/stores/cashuStore";
 import { useCashuHistory } from "@/hooks/useCashuHistory";
 import { useTransactionHistoryStore } from "@/stores/transactionHistoryStore";
 import { format } from "date-fns";
+import { getEncodedTokenV4 } from "@cashu/cashu-ts";
 
 export function CashuTokenCard() {
   const { user } = useCurrentUser();
@@ -78,7 +79,16 @@ export function CashuTokenCard() {
       setGeneratedToken("");
 
       const amountValue = parseInt(amount);
-      const token = await sendToken(cashuStore.activeMintUrl, amountValue);
+      const proofs = await sendToken(cashuStore.activeMintUrl, amountValue);
+      const token = getEncodedTokenV4({
+        mint: cashuStore.activeMintUrl,
+        proofs: proofs.map((p) => ({
+          id: p.id || "",
+          amount: p.amount,
+          secret: p.secret || "",
+          C: p.C || "",
+        })),
+      });
 
       setGeneratedToken(token as string);
       setSuccess(`Token generated for ${amountValue} sats`);
