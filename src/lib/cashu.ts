@@ -87,9 +87,10 @@ export async function updateMintKeys(mintUrl: string, keysets: MintKeyset[]): Pr
 
   if (!keysetsLocal || !keysLocal) {
     const keys = await Promise.all(keysets.map(async (keyset) => {
-      return { [keyset.id]: await wallet.getKeys(keyset.id) };
+      const allKeys = await wallet.getAllKeys()
+      // return a map of all keys (and their "id" as key) 
+      return allKeys.map((key) => ({ [keyset.id]: key }));
     }));
-    return { keys };
   } else if (keysetsLocal !== keysets) {
     // get all keys for each keyset where keysetLocal != keyset and add them to the keysLocal
     const keys = await Promise.all(keysets.map(async (keyset) => {

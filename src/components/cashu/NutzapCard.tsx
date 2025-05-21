@@ -34,6 +34,7 @@ import { Proof } from "@cashu/cashu-ts";
 import { useNutzapInfo } from "@/hooks/useNutzaps";
 import { useNostr } from "@/hooks/useNostr";
 import { CASHU_EVENT_KINDS } from "@/lib/cashu";
+import { getLastEventTimestamp } from "@/lib/nostrTimestamps";
 
 export function NutzapCard() {
   const { user } = useCurrentUser();
@@ -86,6 +87,16 @@ export function NutzapCard() {
       "#p": [user.pubkey], // Events that p-tag the user
       "#u": trustedMints, // Events that u-tag one of the trusted mints
     };
+
+    // Get the last timestamp of redemption events
+    const lastRedemptionTimestamp = getLastEventTimestamp(
+      user.pubkey,
+      CASHU_EVENT_KINDS.HISTORY
+    );
+    // Add since filter if we have a last redemption timestamp
+    if (lastRedemptionTimestamp) {
+      Object.assign(filter, { since: lastRedemptionTimestamp });
+    }
 
     // Cache for keeping track of event IDs we've already processed
     const processedEventIds = new Set<string>(
