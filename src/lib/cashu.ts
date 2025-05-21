@@ -35,6 +35,8 @@ export const CASHU_EVENT_KINDS = {
   TOKEN: 7375,   // Token events for unspent proofs
   HISTORY: 7376, // Spending history events
   QUOTE: 7374,   // Quote events (optional)
+  ZAPINFO: 10019, // ZAP info events
+  ZAP: 9321,     // ZAP events
 };
 
 // Helper function to calculate total balance from tokens
@@ -42,25 +44,29 @@ export function calculateBalance(proofs: Proof[]): Record<string, number> {
   const balances: { [mint: string]: number } = {};
   const mints = useCashuStore.getState().mints;
   for (const mint of mints) {
+    balances[mint.url] = 0;
     const keysets = mint.keysets;
     if (!keysets) continue;
     for (const keyset of keysets) {
       // select all proofs with id == keyset.id
       const proofsForKeyset = proofs.filter((proof) => proof.id === keyset.id);
-      balances[mint.url] = proofsForKeyset.reduce((acc, proof) => acc + proof.amount, 0);
+      if (proofsForKeyset.length) {
+        console.log(`adding ${proofsForKeyset.reduce((acc, proof) => acc + proof.amount, 0)} to ${mint.url}`);
+        balances[mint.url] += proofsForKeyset.reduce((acc, proof) => acc + proof.amount, 0);
+      }
     }
   }
   return balances;
 }
 
 // Helper function to format balance with appropriate units
-export function formatBalance(amount: number): string {
-  if (amount >= 1000000) {
-    return `${(amount / 1000000).toFixed(2)} BTC`;
-  } else if (amount >= 1000) {
-    return `${(amount / 1000).toFixed(2)} mBTC`;
+export function formatBalance(sats: number): string {
+  if (sats >= 1000000) {
+    return `${(sats / 1000000).toFixed(2)}M sats`;
+  } else if (sats >= 1000) {
+    return `${(sats / 1000).toFixed(2)}k sats`;
   } else {
-    return `${amount} sats`;
+    return `${sats} sats`;
   }
 }
 

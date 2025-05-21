@@ -24,13 +24,15 @@ import { useCashuStore } from "@/stores/cashuStore";
 import {
   createLightningInvoice,
   mintTokensFromPaidInvoice,
-  payLightningInvoice,
+  payMeltQuote,
   parseInvoiceAmount,
+  createMeltQuote,
 } from "@/lib/cashuLightning";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { Proof } from "@cashu/cashu-ts";
+import { MeltQuoteResponse, MintQuoteResponse, Proof } from "@cashu/cashu-ts";
 import { CashuToken } from "@/lib/cashu";
 import { NostrEvent } from "nostr-tools";
+import QRCode from "react-qr-code";
 
 interface TokenEvent {
   id: string;
@@ -53,10 +55,12 @@ export function CashuWalletLightningCard() {
   const [receiveAmount, setReceiveAmount] = useState("");
   const [selectedMint, setSelectedMint] = useState("");
   const [invoice, setInvoice] = useState("");
-  const [paymentHash, setPaymentHash] = useState("");
+  const [currentMeltQuoteId, setcurrentMeltQuoteId] = useState("");
   const [paymentRequest, setPaymentRequest] = useState("");
   const [sendInvoice, setSendInvoice] = useState("");
   const [invoiceAmount, setInvoiceAmount] = useState<number | null>(null);
+  const [mintQuote, setMintQuote] = useState<MintQuoteResponse | null>(null);
+  const [meltQuote, setMeltQuote] = useState<MeltQuoteResponse | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -81,11 +85,11 @@ export function CashuWalletLightningCard() {
       const invoiceData = await createLightningInvoice(selectedMint, amount);
 
       setInvoice(invoiceData.paymentRequest);
-      setPaymentHash(invoiceData.paymentHash);
+      setcurrentMeltQuoteId(invoiceData.quoteId);
       setPaymentRequest(invoiceData.paymentRequest);
 
       // Start polling for payment status
-      checkPaymentStatus(selectedMint, invoiceData.paymentHash, amount);
+      checkPaymentStatus(selectedMint, invoiceData.quoteId, amount);
     } catch (error) {
       console.error("Error creating invoice:", error);
       setError(
@@ -100,12 +104,12 @@ export function CashuWalletLightningCard() {
   // Poll for payment status
   const checkPaymentStatus = async (
     mintUrl: string,
-    hash: string,
+    quoteId: string,
     amount: number
   ) => {
     try {
       // Check if payment has been received
-      const proofs = await mintTokensFromPaidInvoice(mintUrl, hash, amount);
+      const proofs = await mintTokensFromPaidInvoice(mintUrl, quoteId, amount);
 
       if (proofs.length > 0) {
         // update proofs
@@ -134,14 +138,14 @@ export function CashuWalletLightningCard() {
 
         setSuccess(`Received ${amount} sats via Lightning!`);
         setInvoice("");
-        setPaymentHash("");
+        setcurrentMeltQuoteId("");
         setTimeout(() => setSuccess(null), 5000);
       } else {
         // If payment not received yet, check again in 5 seconds
         setTimeout(() => {
-          if (paymentHash === hash) {
+          if (currentMeltQuoteId === quoteId) {
             // Only continue if we're still waiting for this payment
-            checkPaymentStatus(mintUrl, hash, amount);
+            checkPaymentStatus(mintUrl, quoteId, amount);
           }
         }, 5000);
       }
@@ -158,9 +162,9 @@ export function CashuWalletLightningCard() {
       } else {
         // Keep polling if it's just not paid yet
         setTimeout(() => {
-          if (paymentHash === hash) {
+          if (currentMeltQuoteId === quoteId) {
             // Only continue if we're still waiting for this payment
-            checkPaymentStatus(mintUrl, hash, amount);
+            checkPaymentStatus(mintUrl, quoteId, amount);
           }
         }, 5000);
       }
@@ -175,12 +179,26 @@ export function CashuWalletLightningCard() {
   };
 
   // Handle send tab
-  const handleInvoiceInput = (value: string) => {
+  const handleInvoiceInput = async (value: string) => {
+    if (!wallet || !wallet.mints || wallet.mints.length === 0) {
+      setError("No mints available");
+      return;
+    }
+
     setSendInvoice(value);
 
+    // Create melt quote
+    const mintUrl = wallet.mints[0];
+    if (!mintUrl) {
+      setError("No mint available");
+      return;
+    }
+    const meltQuote = await createMeltQuote(mintUrl, value);
+    setcurrentMeltQuoteId(meltQuote.quote);
+    console.log(meltQuote);
+
     // Parse amount from invoice
-    const amount = parseInvoiceAmount(value);
-    setInvoiceAmount(amount);
+    setInvoiceAmount(meltQuote.amount);
   };
 
   // Start QR scanner
@@ -230,9 +248,9 @@ export function CashuWalletLightningCard() {
       }
 
       // Pay the invoice
-      const result = await payLightningInvoice(
+      const result = await payMeltQuote(
         mintUrl,
-        sendInvoice,
+        currentMeltQuoteId,
         selectedProofs
       );
 
@@ -364,7 +382,7 @@ export function CashuWalletLightningCard() {
                 <div className="bg-muted p-4 rounded-md flex items-center justify-center">
                   {/* Placeholder for QR code - in a real app, use a QR code library */}
                   <div className="border border-border w-48 h-48 flex items-center justify-center">
-                    <QrCode className="h-24 w-24 text-muted-foreground" />
+                    <QRCode value={invoice} size={180} />
                   </div>
                 </div>
 
@@ -395,7 +413,7 @@ export function CashuWalletLightningCard() {
                   className="w-full"
                   onClick={() => {
                     setInvoice("");
-                    setPaymentHash("");
+                    setcurrentMeltQuoteId("");
                   }}
                 >
                   Cancel

@@ -57,6 +57,8 @@ export function useCashuWallet() {
 
         cashuStore.setPrivkey(walletData.privkey);
 
+        // call getNip60TokensQuery
+        await getNip60TokensQuery.refetch();
         return {
           id: event.id,
           wallet: walletData,
@@ -173,10 +175,10 @@ export function useCashuWallet() {
       // get all proofs with eventIdsToRemove
       const allProofsWithEventIds = eventIdsToRemove.map(id => cashuStore.getProofsByEventId(id)).flat();
 
-      // and filter out those that we want to keep
+      // and filter out those that we want to keep to roll them over to a new event
       const proofsToKeepWithEventIds = allProofsWithEventIds.filter(proof => !proofsToRemove.includes(proof));
 
-      // combine proofsToAdd and proofsToRemoveWithEventIdsFiltered
+      // combine proofsToAdd and proofsToKeepWithEventIds
       const newProofs = [...proofsToAdd, ...proofsToKeepWithEventIds];
 
       let eventToReturn: NostrEvent | null = null;
@@ -204,6 +206,12 @@ export function useCashuWallet() {
         });
         // publish token event
         await nostr.event(newTokenEvent);
+
+        // update local event IDs on all newProofs
+        newProofs.forEach(proof => {
+          cashuStore.setProofEventId(proof, newTokenEvent.id);
+        });
+
         eventToReturn = newTokenEvent;
       }
 

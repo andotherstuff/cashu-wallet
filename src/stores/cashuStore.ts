@@ -1,4 +1,4 @@
-import { Keys, type Proof } from '@cashu/cashu-ts'
+import { Keys, MeltQuoteResponse, MintQuoteResponse, type Proof } from '@cashu/cashu-ts'
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { GetInfoResponse, MintKeyset, MintKeys } from '@cashu/cashu-ts'
@@ -15,7 +15,7 @@ export interface Nip60TokenEvent {
 }
 
 interface CashuStore {
-  mints: { url: string, mintInfo?: GetInfoResponse, keysets?: MintKeyset[], keys?: Record<string, MintKeys>[], events?: Nip60TokenEvent[] }[];
+  mints: { url: string, mintInfo?: GetInfoResponse, keysets?: MintKeyset[], keys?: Record<string, MintKeys>[], events?: Nip60TokenEvent[], mintQuotes?: Record<string, MintQuoteResponse>, meltQuotes?: Record<string, MeltQuoteResponse> }[];
   proofs: ProofWithEventId[];
   privkey?: string;
 
@@ -27,8 +27,17 @@ interface CashuStore {
   removeProofs: (proofs: Proof[]) => void;
   setPrivkey: (privkey: string) => void;
   getMintProofs: (mintUrl: string) => Promise<Proof[]>;
+  setProofEventId: (proof: Proof, eventId: string) => void;
   getProofEventId: (proof: Proof) => string | undefined;
   getProofsByEventId: (eventId: string) => Proof[];
+  getMintQuotes: (mintUrl: string) => Record<string, MintQuoteResponse>;
+  getMeltQuotes: (mintUrl: string) => Record<string, MeltQuoteResponse>;
+  addMintQuote: (mintUrl: string, quote: MintQuoteResponse) => void;
+  addMeltQuote: (mintUrl: string, quote: MeltQuoteResponse) => void;
+  updateMintQuote: (mintUrl: string, quoteId: string, quote: MintQuoteResponse) => void;
+  updateMeltQuote: (mintUrl: string, quoteId: string, quote: MeltQuoteResponse) => void;
+  getMintQuote: (mintUrl: string, quoteId: string) => MintQuoteResponse;
+  getMeltQuote: (mintUrl: string, quoteId: string) => MeltQuoteResponse;
 }
 
 // Usage:
@@ -88,10 +97,14 @@ export const useCashuStore = create<CashuStore>()(
           throw new Error('No keysets found for mint');
         }
         // filter only active keysets
-        const activeKeysets = keysets.filter((keyset) => keyset.active);
+        // const activeKeysets = keysets.filter((keyset) => keyset.active);
         // get all proofs for the keysets from store
-        const proofs = get().proofs.filter((proof) => activeKeysets.some((keyset) => keyset.id === proof.id));
+        const proofs = get().proofs.filter((proof) => keysets.some((keyset) => keyset.id === proof.id));
         return proofs;
+      },
+
+      setProofEventId(proof, eventId) {
+        set({ proofs: get().proofs.map((p) => p.secret === proof.secret ? { ...p, eventId } : p) });
       },
 
       getProofEventId(proof) {
@@ -100,7 +113,55 @@ export const useCashuStore = create<CashuStore>()(
 
       getProofsByEventId(eventId: string) {
         return get().proofs.filter((p) => p.eventId === eventId);
-      }
+      },
+
+      getMintQuotes(mintUrl: string) {
+        const quotes = get().mints.find((mint) => mint.url === mintUrl)?.mintQuotes;
+        if (!quotes) {
+          throw new Error('No mint quotes found for mint');
+        }
+        return quotes;
+      },
+
+      getMeltQuotes(mintUrl: string) {
+        const quotes = get().mints.find((mint) => mint.url === mintUrl)?.meltQuotes;
+        if (!quotes) {
+          throw new Error('No melt quotes found for mint');
+        }
+        return quotes;
+      },
+
+      addMintQuote(mintUrl: string, quote: MintQuoteResponse) {
+        set({ mints: get().mints.map((mint) => mint.url === mintUrl ? { ...mint, mintQuotes: { ...mint.mintQuotes, [quote.quote]: quote } } : mint) });
+      },
+
+      addMeltQuote(mintUrl: string, quote: MeltQuoteResponse) {
+        set({ mints: get().mints.map((mint) => mint.url === mintUrl ? { ...mint, meltQuotes: { ...mint.meltQuotes, [quote.quote]: quote } } : mint) });
+      },
+
+      updateMintQuote(mintUrl: string, quoteId: string, quote: MintQuoteResponse) {
+        set({ mints: get().mints.map((mint) => mint.url === mintUrl ? { ...mint, mintQuotes: { ...mint.mintQuotes, [quoteId]: quote } } : mint) });
+      },
+
+      updateMeltQuote(mintUrl: string, quoteId: string, quote: MeltQuoteResponse) {
+        set({ mints: get().mints.map((mint) => mint.url === mintUrl ? { ...mint, meltQuotes: { ...mint.meltQuotes, [quoteId]: quote } } : mint) });
+      },
+
+      getMintQuote(mintUrl: string, quoteId: string) {
+        const quote = get().mints.find((mint) => mint.url === mintUrl)?.mintQuotes?.[quoteId];
+        if (!quote) {
+          throw new Error('No mint quote found for mint');
+        }
+        return quote;
+      },
+
+      getMeltQuote(mintUrl: string, quoteId: string) {
+        const quote = get().mints.find((mint) => mint.url === mintUrl)?.meltQuotes?.[quoteId];
+        if (!quote) {
+          throw new Error('No melt quote found for mint');
+        }
+        return quote;
+      },
     }),
     { name: 'cashu' },
   ),

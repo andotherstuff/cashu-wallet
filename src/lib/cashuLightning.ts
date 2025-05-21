@@ -1,4 +1,21 @@
-import { CashuMint, CashuWallet, MintQuoteState, Proof } from '@cashu/cashu-ts';
+import { useCashuStore } from '@/stores/cashuStore';
+import { CashuMint, CashuWallet, MeltQuoteResponse, MeltQuoteState, MintQuoteResponse, MintQuoteState, Proof } from '@cashu/cashu-ts';
+
+export interface MintQuote {
+  mintUrl: string;
+  amount: number;
+  paymentRequest: string;
+  quoteId: string;
+  state: MintQuoteState;
+}
+
+export interface MeltQuote {
+  mintUrl: string;
+  amount: number;
+  paymentRequest: string;
+  quoteId: string;
+  state: MeltQuoteState;
+}
 
 /**
  * Create a Lightning invoice to receive funds
@@ -6,7 +23,7 @@ import { CashuMint, CashuWallet, MintQuoteState, Proof } from '@cashu/cashu-ts';
  * @param amount Amount in satoshis
  * @returns Object containing the invoice and information needed to process it
  */
-export async function createLightningInvoice(mintUrl: string, amount: number) {
+export async function createLightningInvoice(mintUrl: string, amount: number): Promise<MintQuote> {
   try {
     const mint = new CashuMint(mintUrl);
     const wallet = new CashuWallet(mint);
@@ -16,14 +33,15 @@ export async function createLightningInvoice(mintUrl: string, amount: number) {
 
     // Create a mint quote
     const mintQuote = await wallet.createMintQuote(amount);
+    useCashuStore.getState().addMintQuote(mintUrl, mintQuote);
 
     // Return the invoice and quote information
     return {
-      paymentRequest: mintQuote.request,
-      paymentHash: mintQuote.quote,
-      amount,
       mintUrl,
-      quote: mintQuote,
+      amount,
+      paymentRequest: mintQuote.request,
+      quoteId: mintQuote.quote,
+      state: MintQuoteState.UNPAID,
     };
   } catch (error) {
     console.error('Error creating Lightning invoice:', error);
@@ -56,6 +74,9 @@ export async function mintTokensFromPaidInvoice(mintUrl: string, quoteId: string
     // Mint proofs using the paid quote
     const proofs = await wallet.mintProofs(amount, quoteId);
 
+    const mintQuoteUpdated = await wallet.checkMintQuote(quoteId);
+    useCashuStore.getState().updateMintQuote(mintUrl, quoteId, mintQuoteUpdated as MintQuoteResponse);
+
     return proofs;
   } catch (error) {
     console.error('Error minting tokens from paid invoice:', error);
@@ -63,14 +84,14 @@ export async function mintTokensFromPaidInvoice(mintUrl: string, quoteId: string
   }
 }
 
+
 /**
- * Pay a Lightning invoice by melting tokens
+ * Create a melt quote for a Lightning invoice
  * @param mintUrl The URL of the mint to use
  * @param paymentRequest The Lightning invoice to pay
- * @param proofs The proofs to spend
- * @returns The fee and change proofs
+ * @returns The melt quote
  */
-export async function payLightningInvoice(mintUrl: string, paymentRequest: string, proofs: Proof[]) {
+export async function createMeltQuote(mintUrl: string, paymentRequest: string): Promise<MeltQuoteResponse> {
   try {
     const mint = new CashuMint(mintUrl);
     const wallet = new CashuWallet(mint);
@@ -78,8 +99,34 @@ export async function payLightningInvoice(mintUrl: string, paymentRequest: strin
     // Load mint keysets
     await wallet.loadMint();
 
-    // Create a melt quote for the Lightning invoice
+    // Create a melt quote
     const meltQuote = await wallet.createMeltQuote(paymentRequest);
+    useCashuStore.getState().addMeltQuote(mintUrl, meltQuote);
+
+    return meltQuote;
+  } catch (error) {
+    console.error('Error creating melt quote:', error);
+    throw error;
+  }
+}
+
+/**
+ * Pay a Lightning invoice by melting tokens
+ * @param mintUrl The URL of the mint to use
+ * @param quoteId The quote ID from the invoice
+ * @param proofs The proofs to spend
+ * @returns The fee and change proofs
+ */
+export async function payMeltQuote(mintUrl: string, quoteId: string, proofs: Proof[]) {
+  try {
+    const mint = new CashuMint(mintUrl);
+    const wallet = new CashuWallet(mint);
+
+    // Load mint keysets
+    await wallet.loadMint();
+
+    // Get melt quote from store
+    const meltQuote = useCashuStore.getState().getMeltQuote(mintUrl, quoteId);
 
     // Calculate total amount needed, including fee
     const amountToSend = meltQuote.amount + meltQuote.fee_reserve;
@@ -91,6 +138,9 @@ export async function payLightningInvoice(mintUrl: string, paymentRequest: strin
 
     // Melt the selected proofs to pay the Lightning invoice
     const meltResponse = await wallet.meltProofs(meltQuote, send);
+
+    const meltQuoteUpdated = await wallet.checkMeltQuote(meltQuote.quote);
+    useCashuStore.getState().updateMeltQuote(mintUrl, meltQuote.quote, meltQuoteUpdated as MeltQuoteResponse);
 
     return {
       fee: meltQuote.fee_reserve || 0,
@@ -141,7 +191,7 @@ export function parseInvoiceAmount(paymentRequest: string): number | null {
         amount = amount * 100; // 1 micro-btc = 100 satoshis
         break;
       case 'm': // milli
-        amount = amount * 100000; // 1 milli-btc = 100,000 satoshis
+        amount = amount * 100; // 1 milli-btc = 100,000 satoshis
         break;
       default: // btc
         amount = amount * 100000000; // 1 btc = 100,000,000 satoshis
