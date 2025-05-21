@@ -16,6 +16,7 @@ import {
   AlertCircle,
   ArrowDownLeft,
   ArrowUpRight,
+  Clock,
   Copy,
   QrCode,
   Scan,
@@ -24,11 +25,20 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useCashuToken } from "@/hooks/useCashuToken";
 import QRCode from "react-qr-code";
 import { useCashuStore } from "@/stores/cashuStore";
+import { useCashuHistory } from "@/hooks/useCashuHistory";
+import { useTransactionHistoryStore } from "@/stores/transactionHistoryStore";
+import { format } from "date-fns";
 
 export function CashuTokenCard() {
   const { user } = useCurrentUser();
   const { wallet } = useCashuWallet();
   const cashuStore = useCashuStore();
+  const {
+    history,
+    isLoading: historyLoading,
+    createHistory,
+  } = useCashuHistory();
+  const transactionHistoryStore = useTransactionHistoryStore();
   const {
     sendToken,
     receiveToken,
@@ -43,6 +53,11 @@ export function CashuTokenCard() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
+
+  // Get recent transactions (last 3)
+  const recentTransactions = transactionHistoryStore
+    .getHistoryEntries()
+    .slice(0, 3);
 
   const handlesendToken = async () => {
     if (!cashuStore.activeMintUrl) {
@@ -86,6 +101,7 @@ export function CashuTokenCard() {
       const proofs = await receiveToken(token);
 
       const totalAmount = proofs.reduce((sum, p) => sum + p.amount, 0);
+
       setSuccess(`Received ${totalAmount} sats successfully!`);
       setToken("");
     } catch (error) {
@@ -245,6 +261,51 @@ export function CashuTokenCard() {
           <Alert className="mt-4">
             <AlertDescription>{success}</AlertDescription>
           </Alert>
+        )}
+
+        {/* Recent Transactions section */}
+        {recentTransactions.length > 0 && (
+          <div className="mt-6 pt-4 border-t">
+            <div className="flex items-center mb-3">
+              <Clock className="h-4 w-4 mr-2" />
+              <h3 className="text-sm font-medium">Recent Transactions</h3>
+            </div>
+            <div className="space-y-3">
+              {recentTransactions.map((entry) => (
+                <div
+                  key={entry.id}
+                  className="flex items-center justify-between text-sm"
+                >
+                  <div className="flex items-center">
+                    {entry.direction === "in" ? (
+                      <ArrowDownLeft className="h-3 w-3 mr-2 text-green-600" />
+                    ) : (
+                      <ArrowUpRight className="h-3 w-3 mr-2 text-red-600" />
+                    )}
+                    <span>
+                      {entry.direction === "in" ? "Received" : "Sent"}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={
+                        entry.direction === "in"
+                          ? "text-green-600"
+                          : "text-red-600"
+                      }
+                    >
+                      {entry.direction === "in" ? "+" : "-"}
+                      {entry.amount} sats
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {entry.timestamp &&
+                        format(new Date(entry.timestamp * 1000), "MMM d")}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         )}
       </CardContent>
     </Card>

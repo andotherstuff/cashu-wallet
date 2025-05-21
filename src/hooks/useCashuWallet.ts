@@ -247,64 +247,12 @@ export function useCashuWallet() {
     }
   });
 
-  // Create spending history event
-  const createHistoryMutation = useMutation({
-    mutationFn: async ({
-      direction,
-      amount,
-      createdTokens = [],
-      destroyedTokens = [],
-      redeemedTokens = []
-    }: {
-      direction: 'in' | 'out';
-      amount: string;
-      createdTokens?: string[];
-      destroyedTokens?: string[];
-      redeemedTokens?: string[];
-    }) => {
-      if (!user) throw new Error('User not logged in');
-      if (!user.signer.nip44) {
-        throw new Error('NIP-44 encryption not supported by your signer');
-      }
-
-      // Prepare content data
-      const contentData = [
-        ['direction', direction],
-        ['amount', amount],
-        ...createdTokens.map(id => ['e', id, '', 'created']),
-        ...destroyedTokens.map(id => ['e', id, '', 'destroyed'])
-      ];
-
-      // Encrypt content
-      const content = await user.signer.nip44.encrypt(
-        user.pubkey,
-        JSON.stringify(contentData)
-      );
-
-      // Create history event with unencrypted redeemed tags
-      const event = await user.signer.signEvent({
-        kind: CASHU_EVENT_KINDS.HISTORY,
-        content,
-        tags: redeemedTokens.map(id => ['e', id, '', 'redeemed']),
-        created_at: Math.floor(Date.now() / 1000)
-      });
-
-      // Publish event
-      await nostr.event(event);
-
-      return event;
-    }
-  });
-
   return {
     wallet: walletQuery.data?.wallet,
     walletId: walletQuery.data?.id,
     tokens: getNip60TokensQuery.data || [],
     isLoading: walletQuery.isLoading || getNip60TokensQuery.isLoading,
     createWallet: createWalletMutation.mutate,
-    // storeMintProofs: storeMintProofsMutation.mutate,
-    // deleteMintProofs: deleteTokenEventMutation.mutate,
-    createHistory: createHistoryMutation.mutate,
     updateProofs: updateProofsMutation.mutateAsync,
   };
 }

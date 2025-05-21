@@ -1,17 +1,85 @@
 import { useNostr } from '@/hooks/useNostr';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { CASHU_EVENT_KINDS, SpendingHistoryEntry } from '@/lib/cashu';
 import { getLastEventTimestamp } from '@/lib/nostrTimestamps';
+import { useTransactionHistoryStore } from '@/stores/transactionHistoryStore';
+import { NostrEvent } from 'nostr-tools';
 
 /**
- * Hook to fetch the user's Cashu spending history
+ * Hook to fetch and manage the user's Cashu spending history
  */
 export function useCashuHistory() {
   const { nostr } = useNostr();
   const { user } = useCurrentUser();
+  const queryClient = useQueryClient();
+  const transactionHistoryStore = useTransactionHistoryStore();
 
-  return useQuery({
+  // Create spending history event
+  const createHistoryMutation = useMutation({
+    mutationFn: async ({
+      direction,
+      amount,
+      createdTokens = [],
+      destroyedTokens = [],
+      redeemedTokens = []
+    }: {
+      direction: 'in' | 'out';
+      amount: string;
+      createdTokens?: string[];
+      destroyedTokens?: string[];
+      redeemedTokens?: string[];
+    }) => {
+      if (!user) throw new Error('User not logged in');
+      if (!user.signer.nip44) {
+        throw new Error('NIP-44 encryption not supported by your signer');
+      }
+
+      // Prepare content data
+      const contentData = [
+        ['direction', direction],
+        ['amount', amount],
+        ...createdTokens.map(id => ['e', id, '', 'created']),
+        ...destroyedTokens.map(id => ['e', id, '', 'destroyed'])
+      ];
+
+      // Encrypt content
+      const content = await user.signer.nip44.encrypt(
+        user.pubkey,
+        JSON.stringify(contentData)
+      );
+
+      // Create history event with unencrypted redeemed tags
+      const event = await user.signer.signEvent({
+        kind: CASHU_EVENT_KINDS.HISTORY,
+        content,
+        tags: redeemedTokens.map(id => ['e', id, '', 'redeemed']),
+        created_at: Math.floor(Date.now() / 1000)
+      });
+
+      // Publish event
+      await nostr.event(event);
+
+      // Add to transaction history store
+      const historyEntry: SpendingHistoryEntry & { id: string } = {
+        id: event.id,
+        direction,
+        amount,
+        timestamp: event.created_at,
+        createdTokens,
+        destroyedTokens,
+        redeemedTokens
+      };
+      transactionHistoryStore.addHistoryEntry(historyEntry);
+
+      return event;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cashu', 'history', user?.pubkey] });
+    }
+  });
+
+  const historyQuery = useQuery({
     queryKey: ['cashu', 'history', user?.pubkey],
     queryFn: async ({ signal }) => {
       if (!user) throw new Error('User not logged in');
@@ -83,6 +151,9 @@ export function useCashuHistory() {
           }
 
           history.push(entry);
+
+          // Add to transaction history store
+          transactionHistoryStore.addHistoryEntry(entry);
         } catch (error) {
           console.error('Failed to decrypt history data:', error);
         }
@@ -93,4 +164,10 @@ export function useCashuHistory() {
     },
     enabled: !!user && !!user.signer.nip44
   });
+
+  return {
+    history: historyQuery.data || [],
+    isLoading: historyQuery.isLoading,
+    createHistory: createHistoryMutation.mutate
+  };
 }

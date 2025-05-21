@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useCashuStore } from '@/stores/cashuStore';
 import { useCashuWallet } from '@/hooks/useCashuWallet';
+import { useCashuHistory } from '@/hooks/useCashuHistory';
 import { CashuMint, CashuWallet, Proof, getEncodedTokenV4, getDecodedToken } from '@cashu/cashu-ts';
 import { CashuProof, CashuToken } from '@/lib/cashu';
 
@@ -8,7 +9,8 @@ export function useCashuToken() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const cashuStore = useCashuStore();
-  const { createHistory, updateProofs } = useCashuWallet();
+  const { updateProofs } = useCashuWallet();
+  const { createHistory } = useCashuHistory();
 
   /**
    * Generate a send token

@@ -21,6 +21,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, Copy, QrCode, Zap } from "lucide-react";
 import { useCashuWallet } from "@/hooks/useCashuWallet";
 import { useCashuStore } from "@/stores/cashuStore";
+import { useCashuHistory } from "@/hooks/useCashuHistory";
 import {
   createLightningInvoice,
   mintTokensFromPaidInvoice,
@@ -43,13 +44,8 @@ interface TokenEvent {
 
 export function CashuWalletLightningCard() {
   const { user } = useCurrentUser();
-  const {
-    wallet,
-    isLoading,
-    createHistory,
-    updateProofs,
-    tokens = [],
-  } = useCashuWallet();
+  const { wallet, isLoading, updateProofs, tokens = [] } = useCashuWallet();
+  const { createHistory } = useCashuHistory();
   const cashuStore = useCashuStore();
   const [activeTab, setActiveTab] = useState("receive");
 
