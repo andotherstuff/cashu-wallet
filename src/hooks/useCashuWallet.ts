@@ -59,14 +59,17 @@ export function useCashuWallet() {
             .map(([, mint]) => mint)
         };
 
-        for (const mint of walletData.mints) {
+        // reduce mints to unique values
+        walletData.mints = [...new Set(walletData.mints)];
+
+        Promise.all(walletData.mints.map(async (mint) => {
           const { mintInfo, keysets } = await activateMint(mint);
           cashuStore.addMint(mint);
           cashuStore.setMintInfo(mint, mintInfo);
           cashuStore.setKeysets(mint, keysets);
           const { keys } = await updateMintKeys(mint);
           cashuStore.setKeys(mint, keys);
-        }
+        }));
 
         cashuStore.setPrivkey(walletData.privkey);
 
