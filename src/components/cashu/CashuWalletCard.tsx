@@ -300,9 +300,6 @@ export function CashuWalletCard() {
           </div>
         </div>
       </CardContent>
-      <CardFooter className="flex justify-between">
-        <p className="text-xs text-muted-foreground">NIP-60 Cashu Wallet</p>
-      </CardFooter>
     </Card>
   );
 }
