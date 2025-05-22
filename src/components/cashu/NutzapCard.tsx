@@ -277,6 +277,14 @@ export function NutzapCard() {
       // Generate token (mint) with the specified amount and get proofs for the nutzap
       const amountValue = parseInt(amount);
 
+      // Verify the mint is in the recipient's trusted list
+      const recipientMints = recipientInfo.mints.map((mint) => mint.url);
+      if (!recipientMints.includes(cashuStore.activeMintUrl)) {
+        throw new Error(
+          `Recipient does not accept tokens from mint: ${cashuStore.activeMintUrl}`
+        );
+      }
+
       // Send token using p2pk pubkey from recipient info
       const proofs = (await sendToken(
         cashuStore.activeMintUrl,
