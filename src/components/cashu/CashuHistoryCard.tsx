@@ -51,7 +51,8 @@ export function CashuHistoryCard() {
       const proofs = await mintTokensFromPaidInvoice(
         transaction.mintUrl,
         transaction.quoteId,
-        amount
+        amount,
+        1
       );
 
       if (proofs.length > 0) {
@@ -179,7 +180,7 @@ export function CashuHistoryCard() {
                             Processing...
                           </>
                         ) : (
-                          "Withdraw"
+                          "Check Payment"
                         )}
                       </Button>
                     </div>

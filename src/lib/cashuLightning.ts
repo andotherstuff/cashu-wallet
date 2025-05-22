@@ -56,7 +56,7 @@ export async function createLightningInvoice(mintUrl: string, amount: number): P
  * @param amount Amount in satoshis
  * @returns The minted proofs
  */
-export async function mintTokensFromPaidInvoice(mintUrl: string, quoteId: string, amount: number): Promise<Proof[]> {
+export async function mintTokensFromPaidInvoice(mintUrl: string, quoteId: string, amount: number, maxAttempts: number = 40): Promise<Proof[]> {
   try {
     const mint = new CashuMint(mintUrl);
     const wallet = new CashuWallet(mint);
@@ -65,7 +65,6 @@ export async function mintTokensFromPaidInvoice(mintUrl: string, quoteId: string
     await wallet.loadMint();
 
     let attempts = 0;
-    const maxAttempts = 40; // 2 minutes at 3 seconds each
     let mintQuoteChecked;
 
     while (attempts < maxAttempts) {
