@@ -41,16 +41,6 @@ export function useCashuToken() {
       // Perform coin selection
       const { keep: proofsToKeep, send: proofsToSend } = await wallet.send(amount, proofs, { pubkey: p2pkPubkey, privkey: cashuStore.privkey });
 
-      // Create token string
-      const token = getEncodedTokenV4({
-        mint: mintUrl,
-        proofs: proofsToSend.map(p => ({
-          id: p.id || '',
-          amount: p.amount,
-          secret: p.secret || '',
-          C: p.C || ''
-        }))
-      });
 
       // Create new token for the proofs we're keeping
       if (proofsToKeep.length > 0) {
