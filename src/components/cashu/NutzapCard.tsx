@@ -28,7 +28,11 @@ import {
   ReceivedNutzap,
   useRedeemNutzap,
 } from "@/hooks/useReceivedNutzaps";
-import { useSendNutzap, useFetchNutzapInfo } from "@/hooks/useSendNutzap";
+import {
+  useSendNutzap,
+  useFetchNutzapInfo,
+  useVerifyMintCompatibility,
+} from "@/hooks/useSendNutzap";
 import { nip19 } from "nostr-tools";
 import { Proof } from "@cashu/cashu-ts";
 import { useNutzapInfo } from "@/hooks/useNutzaps";
@@ -52,6 +56,7 @@ export function NutzapCard() {
   const { mutateAsync: redeemNutzap, isPending: isRedeemingNutzap } =
     useRedeemNutzap();
   const nutzapInfoQuery = useNutzapInfo(user?.pubkey);
+  const { verifyMintCompatibility } = useVerifyMintCompatibility();
 
   const [activeTab, setActiveTab] = useState("receive");
   const [recipientNpub, setRecipientNpub] = useState("");
@@ -277,17 +282,12 @@ export function NutzapCard() {
       // Generate token (mint) with the specified amount and get proofs for the nutzap
       const amountValue = parseInt(amount);
 
-      // Verify the mint is in the recipient's trusted list
-      const recipientMints = recipientInfo.mints.map((mint) => mint.url);
-      if (!recipientMints.includes(cashuStore.activeMintUrl)) {
-        throw new Error(
-          `Recipient does not accept tokens from mint: ${cashuStore.activeMintUrl}`
-        );
-      }
+      // Verify mint compatibility and get a compatible mint URL
+      const compatibleMintUrl = verifyMintCompatibility(recipientInfo);
 
       // Send token using p2pk pubkey from recipient info
       const proofs = (await sendToken(
-        cashuStore.activeMintUrl,
+        compatibleMintUrl,
         amountValue,
         recipientInfo.p2pkPubkey
       )) as Proof[];
@@ -297,7 +297,7 @@ export function NutzapCard() {
         recipientInfo,
         comment,
         proofs,
-        mintUrl: cashuStore.activeMintUrl,
+        mintUrl: compatibleMintUrl,
       });
 
       setSuccess(`Successfully sent ${amountValue} sats`);

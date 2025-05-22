@@ -40,6 +40,7 @@ interface CashuStore {
   getMintQuote: (mintUrl: string, quoteId: string) => MintQuoteResponse;
   getMeltQuote: (mintUrl: string, quoteId: string) => MeltQuoteResponse;
   setActiveMintUrl: (url: string) => void;
+  getActiveMintUrl: () => string | undefined;
 }
 
 // Usage:
@@ -172,6 +173,10 @@ export const useCashuStore = create<CashuStore>()(
 
       setActiveMintUrl(url: string) {
         set({ activeMintUrl: url });
+      },
+
+      getActiveMintUrl() {
+        return get().activeMintUrl;
       },
     }),
     { name: 'cashu' },
