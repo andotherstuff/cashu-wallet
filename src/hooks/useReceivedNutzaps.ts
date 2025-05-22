@@ -176,7 +176,6 @@ export function useReceivedNutzaps() {
           if (proofs.length === 0) continue;
 
           // Verify the tokens are P2PK locked to the user's pubkey
-          // (This is a basic check - in a production app you'd do a more thorough validation)
           for (const proof of proofs) {
             // Check if the token is P2PK locked properly
             try {
@@ -188,9 +187,12 @@ export function useReceivedNutzaps() {
                 continue;
               }
 
-              // In a real implementation, you would verify this more thoroughly
-              // by checking the pubkey matches the user's P2PK pubkey
-              // const p2pkTarget = secret[1].data;
+              const p2pkKey = secret[1].data;
+              if (p2pkKey !== p2pkPubkey) {
+                // Not properly P2PK locked
+                continue;
+              }
+
             } catch (e) {
               console.error('Failed to parse token secret:', e);
               continue;
