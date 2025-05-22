@@ -23,6 +23,7 @@ import {
   ArrowDownLeft,
   ArrowUpRight,
   Copy,
+  Loader2,
   QrCode,
   Zap,
 } from "lucide-react";
@@ -70,6 +71,7 @@ export function CashuWalletLightningCard() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [isLoadingInvoice, setIsLoadingInvoice] = useState(false);
 
   // Handle receive tab
   const handleCreateInvoice = async () => {
@@ -203,6 +205,7 @@ export function CashuWalletLightningCard() {
     // Create melt quote
     const mintUrl = cashuStore.activeMintUrl;
     try {
+      setIsLoadingInvoice(true);
       const meltQuote = await createMeltQuote(mintUrl, value);
       setcurrentMeltQuoteId(meltQuote.quote);
       console.log(meltQuote);
@@ -216,6 +219,9 @@ export function CashuWalletLightningCard() {
         "Failed to create melt quote: " +
           (error instanceof Error ? error.message : String(error))
       );
+      setcurrentMeltQuoteId(""); // Reset quote ID on error
+    } finally {
+      setIsLoadingInvoice(false);
     }
   };
 
@@ -231,6 +237,10 @@ export function CashuWalletLightningCard() {
     if (!sendInvoice) {
       setError("Please enter a Lightning invoice");
       return;
+    }
+
+    if (error && sendInvoice) {
+      await handleInvoiceInput(sendInvoice);
     }
 
     if (!cashuStore.activeMintUrl) {
@@ -259,9 +269,11 @@ export function CashuWalletLightningCard() {
         0
       );
 
-      if (totalProofsAmount < invoiceAmount) {
+      if (totalProofsAmount < invoiceAmount + (invoiceFeeReserve || 0)) {
         setError(
-          `Insufficient balance: have ${totalProofsAmount} sats, need ${invoiceAmount} sats`
+          `Insufficient balance: have ${totalProofsAmount} sats, need ${
+            invoiceAmount + (invoiceFeeReserve || 0)
+          } sats`
         );
         setIsProcessing(false);
         return;
@@ -304,6 +316,7 @@ export function CashuWalletLightningCard() {
         "Failed to pay Lightning invoice: " +
           (error instanceof Error ? error.message : String(error))
       );
+      setcurrentMeltQuoteId(""); // Reset quote ID on error
     } finally {
       setIsProcessing(false);
     }
@@ -391,9 +404,9 @@ export function CashuWalletLightningCard() {
             ) : (
               // Show generated invoice
               <div className="space-y-4">
-                <div className="bg-muted p-4 rounded-md flex items-center justify-center">
-                  {/* Placeholder for QR code - in a real app, use a QR code library */}
-                  <div className="border border-border w-48 h-48 flex items-center justify-center">
+                <div className="bg-white p-4 rounded-md flex items-center justify-center">
+                  {/* QR code with white margin */}
+                  <div className="bg-white p-4 rounded-md">
                     <QRCode value={invoice} size={180} />
                   </div>
                 </div>
@@ -486,9 +499,26 @@ export function CashuWalletLightningCard() {
               <Button
                 className="flex-1"
                 onClick={handlePayInvoice}
-                disabled={isProcessing || !sendInvoice || !invoiceAmount}
+                disabled={
+                  isProcessing ||
+                  isLoadingInvoice ||
+                  !sendInvoice ||
+                  !invoiceAmount
+                }
               >
-                {isProcessing ? "Processing..." : "Pay Invoice"}
+                {isProcessing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Processing...
+                  </>
+                ) : isLoadingInvoice ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Loading...
+                  </>
+                ) : (
+                  "Pay Invoice"
+                )}
               </Button>
             </div>
           </TabsContent>
