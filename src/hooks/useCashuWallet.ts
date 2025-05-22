@@ -61,6 +61,8 @@ export function useCashuWallet() {
 
         // reduce mints to unique values
         walletData.mints = [...new Set(walletData.mints)];
+        // remove trailing slashes from mints
+        walletData.mints = walletData.mints.map(mint => mint.replace(/\/$/, ''));
 
         // fetch the mint info and keysets for each mint
         Promise.all(walletData.mints.map(async (mint) => {
@@ -96,6 +98,11 @@ export function useCashuWallet() {
       if (!user.signer.nip44) {
         throw new Error('NIP-44 encryption not supported by your signer');
       }
+
+      // reduce mints to unique values
+      walletData.mints = [...new Set(walletData.mints)];
+      // remove trailing slashes from mints
+      walletData.mints = walletData.mints.map(mint => mint.replace(/\/$/, ''));
 
       const tags = [
         ['privkey', walletData.privkey],
